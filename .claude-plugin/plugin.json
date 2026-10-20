@@ -1,0 +1,9 @@
+{
+  "name": "sebmakes-keynote-likeapple-pls",
+  "version": "1.0.0",
+  "description": "Builds a 16:9 deck and its full speaker script with the grammar of Apple keynotes (run of show, announcement sequence, one idea per slide, rhythm), in your own branding, for Keynote, PowerPoint, Figma Slides, Canva or video.",
+  "author": { "name": "sebmakes" },
+  "homepage": "https://github.com/sebmakes/sebmakes-keynote-likeapple-pls",
+  "license": "MIT",
+  "keywords": ["presentation", "keynote", "slides", "pptx", "pitch", "product-launch"]
+}
