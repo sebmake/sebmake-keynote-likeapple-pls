@@ -1,16 +1,16 @@
 {
-  "name": "sebmakes",
-  "metadata": { "description": "Skills by sebmakes" },
-  "owner": { "name": "sebmakes" },
+  "name": "sebmake",
+  "metadata": { "description": "Skills by sebmake" },
+  "owner": { "name": "sebmake" },
   "plugins": [
     {
       "name": "sebmakes-keynote-likeapple-pls",
       "description": "Apple-keynote-style 16:9 decks plus the full speaker script, in your own branding.",
       "version": "1.1.0",
-      "author": { "name": "sebmakes" },
+      "author": { "name": "sebmake" },
       "source": "./",
       "category": "productivity",
-      "homepage": "https://github.com/sebmakes/sebmakes-keynote-likeapple-pls"
+      "homepage": "https://github.com/sebmake/sebmakes-keynote-likeapple-pls"
     }
   ]
 }

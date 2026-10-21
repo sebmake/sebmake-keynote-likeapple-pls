@@ -33,8 +33,8 @@ It also hands you a list of the visuals to prepare, each with a brief covering t
 Claude Code, as a plugin:
 
 ```bash
-claude plugin marketplace add sebmakes/sebmakes-keynote-likeapple-pls
-claude plugin install sebmakes-keynote-likeapple-pls@sebmakes
+claude plugin marketplace add sebmake/sebmakes-keynote-likeapple-pls
+claude plugin install sebmakes-keynote-likeapple-pls@sebmake
 ```
 
 Claude Code, by hand: copy the `skills/sebmakes-keynote-likeapple-pls` folder into `~/.claude/skills/`.
