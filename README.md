@@ -1,65 +1,56 @@
 # sebmakes-keynote-likeapple-pls
 
-Une skill Claude qui construit une présentation 16:9 **et le script à dire**, selon la grammaire des keynotes Apple : un déroulé qui monte en puissance, une séquence d'annonce, une idée par écran, des relais entre intervenants, des récapitulatifs emboîtés. Elle reprend la grammaire, jamais la marque : les couleurs, les polices, le produit et les chiffres sont les vôtres.
+A Claude skill that builds a 16:9 deck the way Apple builds its keynotes, then writes the script you'll read over it. The structure comes from eight public Apple keynotes (2019 to 2026): a run of show that saves the biggest news for last, an announcement that unfolds in set steps, one idea per slide, speakers handing off to each other, and recaps nested inside recaps. None of Apple's look comes along. Your deck gets your colors, your fonts, your product and your numbers.
 
-*English below.*
+The skill's own instructions are in French, but it builds decks in English or French.
 
-## Ce qu'elle fait
+## What it does
 
-1. **Elle vous pose les bonnes questions** : le format (Keynote, PowerPoint, Figma Slides, Canva ou vidéo), l'habillage (un lien vers votre design system, ou vos couleurs en HEX), la typologie de public, le tutoiement ou le vouvoiement, puis le brief.
-2. **Elle vous montre le conducteur** (blocs, intervenants, minutage) avant de produire quoi que ce soit.
-3. **Elle produit le deck** : un .pptx 16:9 avec fondus et apparitions au clic, un aperçu HTML, et le script complet dans les notes et dans `script.md`.
+It opens with a few questions, grouped so you answer them in one go: the output format (Keynote, PowerPoint, Figma Slides, Canva or video), your branding as a design-system link or HEX colors, the type of audience, and the tone. In English that means casual first names or formal titles; in French, *tu* or *vous*. A short brief follows, and you can leave parts of it blank.
 
-Quelques règles qu'elle tient :
+Before rendering anything, it shows you the run of show as a table (blocks, speakers, timing and slide count) so you can reorder it while that's still cheap.
 
-- **Aucun chiffre inventé.** Un chiffre, un prix, une date, un client ou un témoignage qui manque reste visible comme `[À FOURNIR]`, estompé à l'écran.
-- **Des propositions signalées.** Quand le brief est mince, elle propose des formulations marquées `[À VALIDER]`.
-- **Le public décide des procédés.** Graphiques sans graduation, chiffres sans source, concurrents anonymes : ce qui passe devant le grand public ne passe pas devant des investisseurs ou des acheteurs. La skill règle tout cela d'après la typologie de public.
+You get a 16:9 .pptx with fades and click builds, an HTML preview, and the full script twice: once in the speaker notes and once in `script.md`.
 
-La grammaire vient d'une analyse de huit keynotes Apple publiques (2019-2026) : déroulés, plans, formules en anglais et en français. Les mises en page sont étalonnées sur des mesures prises sur ces plans. La skill ne contient aucune image, aucune police ni aucune citation d'Apple.
+## What it won't do
 
-## Les designs
+Make up a number. A missing figure, price, date, customer name or testimonial stays on the slide as `[TO PROVIDE: …]`, dimmed so it reads as an empty slot (`[À FOURNIR]` in a French deck). Wording gets different treatment: when your brief is thin, the skill drafts the thesis or a feature description itself and flags it `[TO VALIDATE: …]` until you sign off.
 
-La skill connaît 25 types de slides tirés des keynotes (carte-titre, chiffre héros, grille récapitulative, produit seul, capture dans un appareil, photo à fond perdu, prix, disponibilité…) et **147 variantes de composition**, décrites type par type dans `references/designs.md`. Elle choisit le design slide par slide, en variant d'un bloc à l'autre, et livre **la liste des visuels à préparer**, avec un brief pour chacun : type, cadrage, fond transparent ou non, résolution. Tant qu'un visuel manque, elle dessine un repli neutre, sans chiffre ni marque.
+It also won't use the same tricks on every audience. Charts with no axis labels, figures with no source, an unnamed competitor, "up to" claims: they play fine at a consumer launch and get picked apart by investors or a procurement team. You choose the audience type once, and the skill decides what each slide can get away with.
 
-![Galerie des 137 designs rendus par la skill, sur une marque fictive](skills/sebmakes-keynote-likeapple-pls/assets/galerie.jpg)
+Type sizes, weights, letter spacing and positions on the slide come from 67 frames pulled from those eight keynotes and measured pixel by pixel. The repo holds no Apple images or fonts, and no quotes from Apple.
 
-## Installation
+## Layouts
 
-**Claude Code, comme plugin :**
+The skill knows 25 slide types taken from the keynotes (title card, hero number, bento recap, product alone, screenshot inside a device, full-bleed photo, pricing, availability and others), with 147 layout variants spread across them. Each type has its own entry in `references/designs.md`. The skill picks a layout for every slide and switches things up from one block to the next.
+
+It also hands you a list of the visuals to prepare, each with a brief covering type, framing, background (transparent or not) and resolution. Until a visual shows up, the slide carries a neutral placeholder with no numbers and no logo on it.
+
+![137 of the 147 layouts, rendered by the skill for a fictional brand](skills/sebmakes-keynote-likeapple-pls/assets/galerie.jpg)
+
+## Install
+
+Claude Code, as a plugin:
 
 ```bash
 claude plugin marketplace add sebmakes/sebmakes-keynote-likeapple-pls
 claude plugin install sebmakes-keynote-likeapple-pls@sebmakes
 ```
 
-**Claude Code, à la main :** copiez le dossier `skills/sebmakes-keynote-likeapple-pls` dans `~/.claude/skills/`.
+Claude Code, by hand: copy the `skills/sebmakes-keynote-likeapple-pls` folder into `~/.claude/skills/`.
 
-**Claude.ai :** téléchargez le fichier `.skill` de la dernière version (onglet *Releases*), puis importez-le dans vos réglages de skills.
+Claude.ai: download the `.skill` file from the latest release on the Releases tab, then upload it in your skill settings.
 
-**Prérequis :** Node 18 ou plus (la bibliothèque pptxgenjs s'installe toute seule au premier rendu), Python 3.9 ou plus pour le contrôle du deck.
+You'll need Node 18 or later and Python 3.9 or later. The skill runs `npm install` for pptxgenjs on the first render; Python runs the deck check.
 
-## Utilisation
+## Usage
 
-Demandez simplement, par exemple :
+Ask for it the way you'd ask a colleague:
 
-> Fais-moi une présentation à la Apple de 10 minutes pour présenter notre nouveau module de facturation à nos clients. Couleurs : #091230 et #E4FF3A. On vouvoie le public. En PowerPoint.
+> Make me a 10-minute Apple-style presentation introducing our new invoicing module to customers. Colors: #091230 and #E4FF3A. Formal tone. PowerPoint.
 
-Ce qui reste à vérifier à la main : les apparitions dans Keynote ou Canva (elles ne passent pas toujours à l'import), et les polices, à installer sur la machine qui présente.
-
----
-
-## English
-
-A Claude skill that builds a 16:9 deck **and the full speaker script** with the grammar of Apple keynotes: a run of show that builds up, an announcement sequence, one idea per slide, handovers between speakers, nested recaps. It takes the grammar, never the brand: colours, fonts, product and figures are yours.
-
-- It asks for the format (Keynote, PowerPoint, Figma Slides, Canva or video), your branding (a design-system link or HEX colours), the audience type, and the tone. Then it shows the run of show before producing anything.
-- It delivers a 16:9 .pptx with fades and click builds, an HTML preview, and the full script in the speaker notes and in `script.md`.
-- It never invents a figure, price, date, client or testimonial: missing items stay visible as `[TO PROVIDE]`. Proposed wording is flagged `[TO VALIDATE]`.
-- It knows 25 slide types and 147 layout variants (see `references/designs.md` and the gallery above), picks a design for each slide, and lists the visuals to prepare, each with a brief.
-
-Install with `claude plugin marketplace add sebmakes/sebmakes-keynote-likeapple-pls`, then `claude plugin install sebmakes-keynote-likeapple-pls@sebmakes`. You can also copy `skills/sebmakes-keynote-likeapple-pls` into `~/.claude/skills/`. Requires Node 18+ and Python 3.9+.
+Two things still need a human eye. Click builds don't always survive an import into Keynote or Canva, and the fonts have to be installed on whatever machine you present from.
 
 ---
 
-Not affiliated with, endorsed or sponsored by Apple Inc. Apple and Keynote are trademarks of Apple Inc., registered in the U.S. and other countries. Licence MIT.
+Not affiliated with, endorsed or sponsored by Apple Inc. Apple and Keynote are trademarks of Apple Inc., registered in the U.S. and other countries. MIT License.
