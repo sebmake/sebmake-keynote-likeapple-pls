@@ -1,6 +1,6 @@
 ---
 name: sebmake-keynote-likeapple-pls
-description: "Crée une présentation 16:9 bâtie selon la grammaire des keynotes Apple (déroulé, séquence d'annonce, une idée par écran, rythme, formules), avec les slides ET le script à dire, aux couleurs de l'utilisateur, pour Keynote, PowerPoint, Figma Slides, Canva ou vidéo. À utiliser dès qu'on demande une présentation, une keynote, un deck ou un pitch « à la Apple », « style Apple » ou « comme une keynote Apple », un lancement produit scénarisé, une démo mise en scène, ou une présentation épurée qui « claque », même sans le mot Apple. EN: builds an Apple-keynote-style 16:9 deck plus the full speaker script, in the user's own branding, for any Apple-style keynote, pitch, product launch or staged demo. Pas pour un simple export .pptx sans mise en scène (skill pptx) ni pour une interface « style Apple ». Not for a plain .pptx export with no staging, nor for Apple-style UI design."
+description: "Builds a 16:9 deck plus the full speaker script on the grammar of Apple keynotes (run of show, announcement sequence, one idea per slide, pacing), in the user's own branding, for Keynote, PowerPoint, Figma Slides, Canva or video. Use it whenever someone wants an Apple-style or keynote-style presentation, deck or pitch, a staged product launch or demo, or a clean deck that hits hard, even if they never say Apple. Not for a plain .pptx export with no staging (that's the pptx skill), nor for Apple-style UI design."
 ---
 
 # Présentation à la Apple
