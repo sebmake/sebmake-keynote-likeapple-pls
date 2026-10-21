@@ -1,5 +1,5 @@
 ---
-name: sebmakes-keynote-likeapple-pls
+name: sebmake-keynote-likeapple-pls
 description: "Crée une présentation 16:9 bâtie selon la grammaire des keynotes Apple (déroulé, séquence d'annonce, une idée par écran, rythme, formules), avec les slides ET le script à dire, aux couleurs de l'utilisateur, pour Keynote, PowerPoint, Figma Slides, Canva ou vidéo. À utiliser dès qu'on demande une présentation, une keynote, un deck ou un pitch « à la Apple », « style Apple » ou « comme une keynote Apple », un lancement produit scénarisé, une démo mise en scène, ou une présentation épurée qui « claque », même sans le mot Apple. EN: builds an Apple-keynote-style 16:9 deck plus the full speaker script, in the user's own branding, for any Apple-style keynote, pitch, product launch or staged demo. Pas pour un simple export .pptx sans mise en scène (skill pptx) ni pour une interface « style Apple ». Not for a plain .pptx export with no staging, nor for Apple-style UI design."
 ---
 
@@ -10,7 +10,7 @@ Cette skill produit une présentation 16:9 et le script qui va avec, construits 
 Tout part d'un seul fichier, `deck.json`. Le contrôle, le .pptx, l'aperçu HTML et le script en sortent. On corrige toujours `deck.json`, jamais le fichier rendu : sinon la correction disparaît au rendu suivant.
 
 ```bash
-SKILL="<dossier de ce SKILL.md>"   # souvent ~/.claude/skills/sebmakes-keynote-likeapple-pls
+SKILL="<dossier de ce SKILL.md>"   # souvent ~/.claude/skills/sebmake-keynote-likeapple-pls
 ```
 
 ## Étape 1 — Recueil

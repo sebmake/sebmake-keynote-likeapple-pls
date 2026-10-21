@@ -1,4 +1,4 @@
-# sebmakes-keynote-likeapple-pls
+# sebmake-keynote-likeapple-pls
 
 A Claude skill that builds a 16:9 deck the way Apple builds its keynotes, then writes the script you'll read over it. The structure comes from eight public Apple keynotes (2019 to 2026): a run of show that saves the biggest news for last, an announcement that unfolds in set steps, one idea per slide, speakers handing off to each other, and recaps nested inside recaps. None of Apple's look comes along. Your deck gets your colors, your fonts, your product and your numbers.
 
@@ -26,18 +26,18 @@ The skill knows 25 slide types taken from the keynotes (title card, hero number,
 
 It also hands you a list of the visuals to prepare, each with a brief covering type, framing, background (transparent or not) and resolution. Until a visual shows up, the slide carries a neutral placeholder with no numbers and no logo on it.
 
-![137 of the 147 layouts, rendered by the skill for a fictional brand](skills/sebmakes-keynote-likeapple-pls/assets/galerie.jpg)
+![137 of the 147 layouts, rendered by the skill for a fictional brand](skills/sebmake-keynote-likeapple-pls/assets/galerie.jpg)
 
 ## Install
 
 Claude Code, as a plugin:
 
 ```bash
-claude plugin marketplace add sebmake/sebmakes-keynote-likeapple-pls
-claude plugin install sebmakes-keynote-likeapple-pls@sebmake
+claude plugin marketplace add sebmake/sebmake-keynote-likeapple-pls
+claude plugin install sebmake-keynote-likeapple-pls@sebmake
 ```
 
-Claude Code, by hand: copy the `skills/sebmakes-keynote-likeapple-pls` folder into `~/.claude/skills/`.
+Claude Code, by hand: copy the `skills/sebmake-keynote-likeapple-pls` folder into `~/.claude/skills/`.
 
 Claude.ai: download the `.skill` file from the latest release on the Releases tab, then upload it in your skill settings.
 

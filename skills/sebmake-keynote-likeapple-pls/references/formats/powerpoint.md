@@ -8,7 +8,7 @@ Il est toujours en 16:9 : 10 × 5,625 pouces (25,4 × 14,29 cm), le format « Af
 Le moteur commun est `scripts/build_deck.js` (Node, bibliothèque pptxgenjs). Il lit `deck.json` et écrit le .pptx et un aperçu HTML.
 
 ```bash
-SKILL=~/.claude/skills/sebmakes-keynote-likeapple-pls
+SKILL=~/.claude/skills/sebmake-keynote-likeapple-pls
 [ -d "$SKILL/scripts/node_modules/pptxgenjs" ] || (cd "$SKILL/scripts" && npm install)
 node "$SKILL/scripts/build_deck.js" deck.json sortie.pptx --preview sortie.html
 ```

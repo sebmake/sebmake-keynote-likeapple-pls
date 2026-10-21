@@ -1,8 +1,8 @@
 {
-  "name": "sebmakes-keynote-likeapple-pls-scripts",
+  "name": "sebmake-keynote-likeapple-pls-scripts",
   "version": "1.0.0",
   "private": true,
-  "description": "Moteur de rendu .pptx et aperçu HTML 16:9 pour la skill sebmakes-keynote-likeapple-pls.",
+  "description": "Moteur de rendu .pptx et aperçu HTML 16:9 pour la skill sebmake-keynote-likeapple-pls.",
   "license": "UNLICENSED",
   "main": "build_deck.js",
   "bin": {
