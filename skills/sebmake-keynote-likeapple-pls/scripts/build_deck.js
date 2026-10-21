@@ -1333,7 +1333,7 @@ const KIND_RX = {
   carte: /\b(cartes? (?:de|du|des)|plans? de (?:la )?ville|zones? desservies?|maps?|territoires?)\b/,
   interface: /\b(captures?|ecrans?|interfaces?|tableaux? de bord|dashboards?|pages?|applis?|applications?|logiciels?|modules?|demos?|factures?|listes?|screens?|screenshots?|ui|web|sites?|espaces? clients?|portails?|suivis?)\b/,
   photo: /\b(photos?|portraits?|equipes?|personnes?|scenes?|decors?|ambiances?|paysages?|people|team|crowd|lifestyle)\b/,
-  objet: /\b(produits?|boitiers?|objets?|capteurs?|machines?|camions?|vehicules?|emballages?|packagings?|bouteilles?|hardware|products?|box|coffrets?)\b/
+  objet: /\b(produits?|boitiers?|objets?|capteurs?|machines?|vehicules?|emballages?|packagings?|bouteilles?|hardware|products?|box|coffrets?)\b/
 };
 const VARIANT_RX = [
   ['tableau', /\b(tableaux? de bord|dashboards?|statistiques?|kpi|indicateurs?|graphiques?|charts?|analytics|rapports?|reporting)\b/],

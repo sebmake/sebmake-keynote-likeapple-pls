@@ -337,10 +337,10 @@ Une slide est considérée comme chiffrée si c'est une A5 ou une A6, une A14 do
 `image` dit où est le fichier et ce qu'il montre. `visuel` dit comment le préparer : c'est le brief que l'utilisateur, son graphiste ou son photographe reçoit. La skill le remplit à l'étape « Design slide par slide », d'après le §7 de la fiche de l'archétype dans `designs.md`. Il n'apparaît ni à l'écran ni dans les notes.
 
 ```json
-"image": { "chemin": "images/suivi.png", "attendu": "Écran de suivi de commande, livreur en route" },
+"image": { "chemin": "images/apercu.png", "attendu": "Écran de personnalisation d'un carnet, aperçu de la couverture" },
 "visuel": {
   "type": "capture",
-  "brief": "Écran de suivi d'une commande en cours, données de démonstration, heure neutre, sans notification.",
+  "brief": "Écran de personnalisation d'un carnet, aperçu de la couverture ; données de démonstration, heure neutre, sans notification.",
   "fond_transparent": false,
   "angle": "face",
   "resolution_min": "1170 × 2532"
@@ -471,39 +471,39 @@ Voici un deck court mais complet : un créneau de deux minutes sur un salon, ave
       "duree_s": 20, "build": ["Le mot est à l'écran avant la prise de parole."]
     },
     {
-      "id": "s2", "bloc": "Brume Express", "etape": 3, "archetype": "A5", "variante": "centre", "fond": "sombre", "intervenant": "lea",
-      "textes": { "surtitre": "Aujourd'hui", "chiffre": "[À FOURNIR : délai actuel]", "libelle": "d'attente moyenne pour une commande" },
+      "id": "s2", "bloc": "Brume Sur-mesure", "etape": 3, "archetype": "A5", "variante": "centre", "fond": "sombre", "intervenant": "lea",
+      "textes": { "surtitre": "Aujourd'hui", "chiffre": "[À FOURNIR : délai actuel]", "libelle": "d'attente moyenne pour un carnet personnalisé" },
       "source": "[À FOURNIR : source]",
-      "a_fournir": "Délai moyen actuel entre la commande et la livraison, avec sa source (relevé interne, étude) et sa période.",
-      "notes": "Aujourd'hui, quand vous commandez chez nous, vous attendez en moyenne [À FOURNIR : délai actuel]. C'est le retour que vous nous faites le plus souvent, et nous l'entendons. Une commande qui traîne, c'est un client qui attend, ou une vitrine vide. Nous avons voulu changer cela.",
+      "a_fournir": "Délai moyen actuel pour fabriquer un carnet personnalisé, avec sa source (relevé interne, étude) et sa période.",
+      "notes": "Aujourd'hui, quand vous nous commandez un carnet personnalisé, vous attendez en moyenne [À FOURNIR : délai actuel]. C'est le retour que vous nous faites le plus souvent, et nous l'entendons. Un carnet qui tarde, c'est un client qui attend, ou une vitrine vide. Nous avons voulu changer cela.",
       "duree_s": 25, "build": ["Le surtitre d'abord.", "Le chiffre arrive quand il est dit, puis le libellé."]
     },
     {
-      "id": "s3", "bloc": "Brume Express", "etape": 6, "archetype": "A1", "variante": "aplat", "fond": "sombre", "intervenant": "lea",
-      "textes": { "surtitre": "Nouveau", "titre": "Brume *Express*" },
+      "id": "s3", "bloc": "Brume Sur-mesure", "etape": 6, "archetype": "A1", "variante": "aplat", "fond": "sombre", "intervenant": "lea",
+      "textes": { "surtitre": "Nouveau", "titre": "Brume *Sur-mesure*" },
       "notes": [
-        { "intervenant": "lea", "texte": "Voici Brume Express." },
-        { "intervenant": "lea", "type": "relais", "texte": "Tom l'a conçu avec notre équipe de livraison. Il va vous en dire plus. Tom, à toi." }
+        { "intervenant": "lea", "texte": "Voici Brume Sur-mesure." },
+        { "intervenant": "lea", "type": "relais", "texte": "Tom l'a conçu avec notre atelier de reliure. Il va vous en dire plus. Tom, à toi." }
       ],
       "duree_s": 15, "build": ["Le nom apparaît seul, au moment où il est dit. Deux secondes de silence."]
     },
     {
-      "id": "s4", "bloc": "Brume Express", "etape": 9, "archetype": "A9", "variante": "objet-liste", "fond": "sombre", "intervenant": "tom",
+      "id": "s4", "bloc": "Brume Sur-mesure", "etape": 9, "archetype": "A9", "variante": "objet-liste", "fond": "sombre", "intervenant": "tom",
       "textes": {
-        "titre": "[À VALIDER : Commandé le matin, livré le soir.]",
-        "lignes": ["[À VALIDER : Dans toute la ville]", "Sans minimum", "Suivi en direct"]
+        "titre": "[À VALIDER : Composé le matin, relié le soir.]",
+        "lignes": ["[À VALIDER : Votre couverture, votre papier]", "Sans minimum", "Aperçu en direct"]
       },
-      "image": { "chemin": "images/suivi.png", "attendu": "Écran de suivi de commande sur téléphone, livreur en route" },
-      "visuel": { "type": "capture", "brief": "Écran de suivi d'une commande en cours, livreur en route ; données de démonstration, heure neutre, sans notification.", "fond_transparent": false, "angle": "face", "resolution_min": "1170 × 2532" },
-      "notes": "Merci Léa. [À VALIDER : Vous commandez le matin, nous livrons le soir, partout en ville.] Il n'y a pas de minimum de commande : une ramette ou un carton, c'est le même service. Et vous suivez votre livreur en direct, depuis votre téléphone, jusqu'à votre porte. Vous savez toujours où en est votre commande, et votre client aussi, si vous lui transférez le lien.",
+      "image": { "chemin": "images/apercu.png", "attendu": "Écran de personnalisation d'un carnet sur téléphone, aperçu de la couverture" },
+      "visuel": { "type": "capture", "brief": "Écran de personnalisation d'un carnet, aperçu de la couverture ; données de démonstration, heure neutre, sans notification.", "fond_transparent": false, "angle": "face", "resolution_min": "1170 × 2532" },
+      "notes": "Merci Léa. [À VALIDER : Vous composez votre carnet le matin, nous le relions le soir.] Il n'y a pas de minimum de commande : un exemplaire ou cinquante, c'est le même service. Et vous voyez votre carnet prendre forme en direct, depuis votre téléphone, à chaque choix de papier ou de couverture. Vous savez toujours à quoi il ressemblera, et votre client aussi, si vous lui transférez le lien.",
       "duree_s": 30, "build": ["L'écran d'abord.", "Le titre, puis les trois lignes une à une."]
     },
     {
-      "id": "s5", "bloc": "Brume Express", "etape": 15, "archetype": "A19", "variante": "prix-heros", "fond": "sombre", "intervenant": "tom",
-      "textes": { "offres": [{ "nom": "Brume Express", "mention": "À partir de", "prix": "[À FOURNIR : prix HT]", "note": "par livraison" }] },
-      "a_fournir": "Prix HT d'une livraison Express, validé par Léa.",
+      "id": "s5", "bloc": "Brume Sur-mesure", "etape": 15, "archetype": "A19", "variante": "prix-heros", "fond": "sombre", "intervenant": "tom",
+      "textes": { "offres": [{ "nom": "Brume Sur-mesure", "mention": "À partir de", "prix": "[À FOURNIR : prix HT]", "note": "par carnet" }] },
+      "a_fournir": "Prix HT d'un carnet Sur-mesure, validé par Léa.",
       "notes": [
-        { "intervenant": "tom", "texte": "Brume Express est proposé à partir de [À FOURNIR : prix] hors taxes par livraison, sans abonnement. Vous pouvez l'essayer dès aujourd'hui : laissez-nous votre adresse ici, sur le stand, et votre première commande part demain." },
+        { "intervenant": "tom", "texte": "Brume Sur-mesure est proposé à partir de [À FOURNIR : prix] hors taxes par carnet, sans abonnement. Vous pouvez l'essayer dès aujourd'hui : composez votre premier carnet ici, sur le stand, avec moi." },
         { "intervenant": "tom", "type": "relais", "texte": "Léa, je te rends la parole." }
       ],
       "duree_s": 25, "build": ["Le nom, puis le prix."]
@@ -511,7 +511,7 @@ Voici un deck court mais complet : un créneau de deux minutes sur un salon, ave
     {
       "id": "s6", "bloc": "Clôture", "archetype": "A1", "variante": "mot-final", "fond": "sombre", "intervenant": "lea",
       "textes": { "titre": "Merci." },
-      "notes": "Merci Tom. Et merci à vous. [À VALIDER : Brume Express, c'est commander le matin et recevoir le soir.] Passez nous voir avant de partir : nous avons des échantillons pour vous, et Tom vous montrera le suivi sur son téléphone. Très bonne fin de salon !",
+      "notes": "Merci Tom. Et merci à vous. [À VALIDER : Brume Sur-mesure, c'est composer son carnet le matin et le tenir en main le soir.] Passez nous voir avant de partir : nous avons des échantillons pour vous, et Tom vous montrera l'aperçu sur son téléphone. Très bonne fin de salon !",
       "duree_s": 20
     }
   ]
