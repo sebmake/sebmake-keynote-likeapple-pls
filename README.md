@@ -26,7 +26,7 @@ Type sizes, weights, letter spacing and positions come from 67 frames of those k
 
 It also hands you a list of visuals to prepare, each with a brief: type, framing, transparent background or not, resolution. Until a visual shows up, the slide carries a neutral placeholder with no numbers and no logo.
 
-![137 of the 147 layouts, rendered by the skill for a fictional brand](skills/sebmake-keynote-likeapple-pls/assets/galerie.jpg)
+![137 of the 148 layouts, rendered by the skill for a fictional brand](skills/sebmake-keynote-likeapple-pls/assets/galerie.jpg)
 
 ## Install
 
