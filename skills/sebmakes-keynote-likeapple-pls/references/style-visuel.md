@@ -309,6 +309,7 @@ Positions en pouces sur le canevas de 10 × 5,625 in. « centre y » est le cent
   sources et mentions : corps 9 pt, secondaire, ligne de base à 5.29 in
   fond : fond_sombre plein ; ou accent en pleine page, le seul de tout le deck, avec un texte
          en fond_sombre si le contraste atteint 4,5:1 (convention, retenue d'après le témoin)
+         et si theme.finale_accent n'est pas false (charte qui plafonne la surface d'accent)
   ```
 
 ### Surtitre, dans tous les archétypes à texte
@@ -327,11 +328,12 @@ Positions en pouces sur le canevas de 10 × 5,625 in. « centre y » est le cent
 | Marqueur | À l'écran |
 |---|---|
 | `[À VALIDER : texte proposé]` | Le texte proposé, sans crochets, dans le style normal de son champ : rien ne le distingue. |
-| `[À FOURNIR : libellé]` | Le libellé seul, 3 mots au plus, **dans le style et au corps du champ** (titre, chiffre, prix, date), **estompé** à toutes les tailles (couleur du texte qu'il remplace, 40 % d'opacité, jamais de dégradé) et souligné en pointillé d'accent : il se lit comme un emplacement, pas comme du contenu. Jamais d'encadré, de fond rose ou de cadre gris. |
+| `[À FOURNIR : libellé]` | Le libellé seul, 3 mots au plus, **dans le style et au corps du champ** (titre, chiffre, prix, date), **estompé** à toutes les tailles (couleur du texte qu'il remplace, 40 % d'opacité, jamais de dégradé ; un chiffre ou un mot d'accent manquant passe dans la couleur du texte, car l'accent à 40 % vire au brun sur fond sombre) et souligné en pointillé d'accent : il se lit comme un emplacement, pas comme du contenu. Jamais d'encadré, de fond rose ou de cadre gris. |
 
 - Jusqu'à 26 pt : pptx `underline: { style: 'dotted', color: ACCENT }` sur la portion du marqueur (pptxgenjs 4 écrit `u="dotted"` et `a:uFill`) ; aperçu HTML `text-decoration: underline dotted #ACCENT; text-decoration-thickness: max(2px, .05em); text-underline-offset: .12em`.
 - Au-dessus de 26 pt (titre, chiffre, prix, date) : le soulignement d'une police grossit avec le corps (Arial : 0,07 em, soit une rangée de points de 10 pt sous un chiffre de 144 pt, constaté à l'itération 2). Le moteur le retire du texte et pose dessous un **filet pointillé d'épaisseur fixe** : 1,5 pt, `sysDot`, accent à 70 %, à 0,085 em sous la ligne de base (entre 3 et 12 pt), sur la largeur estimée du marqueur. Le même filet dans le .pptx (forme « Soulignement », animée avec son texte) et dans l'aperçu, chacun placé pour la police qu'il affiche : la police écrite pour le .pptx, le repli quand l'aperçu ne l'a pas (`STYLE.marqueur.chasse`, écart mesuré : 0,1 in au plus).
-- Un `[À FOURNIR]` écrit dans un `*accent*` reste un marqueur : couleur d'accent à 40 %, jamais le texte en clair. Une ligne d'A8 qui n'est qu'un marqueur garde sa case vide, sans coche.
+- Canva perd l'opacité à l'import : avec `meta.format` à `canva`, le libellé garde ses crochets (`[date]`), seul signe d'emplacement qui survit. Le filet pointillé les couvre.
+- Un `[À FOURNIR]` écrit dans un `*accent*` reste un marqueur : couleur du texte à 40 %, jamais le texte en clair ni l'accent. Une ligne d'A8 qui n'est qu'un marqueur garde sa case vide, sans coche.
 - Un champ principal qui manque (titre, lignes, chiffre, citation) prend un libellé tiré de la slide : le début de `textes.attendu` (sans article ni « slide de »), sinon, pour une slide AF, son identifiant (`s13-garanties` → « Garanties »). Jamais le nom du champ (« titre », « lignes », « contenu ») : ce sont des mots de l'atelier.
 - Le marqueur suit l'ajustement de son champ (planchers compris). Une image qui manque est remplacée par une interface schématique (§5.2), jamais par un cadre gris.
 
@@ -394,8 +396,8 @@ une seule chose en accent (la chose dont on parle) : la ligne mise en avant, tei
           sombre si l'accent est trop clair sur la carte (sous 1,8:1 : jaune sur blanc)
 aucun texte, aucun chiffre, aucun montant, aucune date, aucun nom de client, aucun logo
 ombre : aucune sur sombre ; sur clair : flou 0.3 in, décalage 0.08 in, 12 % de noir
-appareil générique (si besoin) : rectangle à coins de 13 % de la largeur, bord de 3 %,
-          ni encoche ni boutons : rien qui évoque un appareil réel
+appareil générique (si besoin) : rectangle à coins de 13 % de la largeur, bord de 3 %, verre noir
+          et liseré clair de 0,75 à 1,75 pt, ni encoche ni boutons : rien qui évoque un appareil réel
 photo : aplat un peu plus clair que le fond, deux halos neutres ; aucun reflet d'accent (il virait au kaki)
 tuile d'image (mur, bento) : aplat voisin des tuiles, jamais un écran clair au milieu du mur
 ```
@@ -408,7 +410,7 @@ Place et taille : celles de l'image qu'elle remplace (A9 : la zone de l'objet, m
 
 ## 6. Mouvement
 
-Les durées ne se mesurent pas sur des images fixes : elles sont de convention. Les manières, elles, sont observées sur les keynotes.
+Les durées ne se mesurent pas sur des images fixes : elles sont de convention. Les manières, elles, sont observées (l'analyse du corpus).
 
 | Moment | Observé | Valeur moteur |
 |---|---|---|

@@ -43,6 +43,8 @@ Ne jamais supposer qu'il existe. Vérifier la liste de ses propres outils :
 - Pour une construction par étapes (liste ligne par ligne, chiffre puis libellé, nom puis prix) : une page par état (dupliquer la page, ajouter l'élément suivant), reliées par la transition Match & Move, sinon par un fondu.
 - Animations Canva : garder la plus sobre (fondu). Pas d'effet spectaculaire.
 
+**Marqueurs `[À FOURNIR]`.** L'import perd l'opacité de 40 % qui estompe les libellés : « date » ou « gain » s'afficheraient comme du vrai contenu. Avec `meta.format` à `canva`, le moteur garde donc les crochets à l'écran (`[date]`, `[gain]`). Après l'import, vérifier qu'aucun libellé n'a perdu ses crochets.
+
 **Autres points.**
 - Pas de masque de diapositive : chaque page est indépendante.
 - Les graphiques natifs peuvent arriver figés ou déformés. Les refaire avec l'outil graphique de Canva, sans graduation si la grammaire n'en veut pas.
@@ -70,6 +72,6 @@ Ne jamais supposer qu'il existe. Vérifier la liste de ses propres outils :
 - [ ] Aucun logo, image ou police Apple.
 - [ ] Notes présentes sur chaque page qui a un script, avec relais et durée.
 - [ ] Étapes reproduites (pages dupliquées), ou listées pour l'utilisateur.
-- [ ] Aucun chiffre, prix, date ou témoignage inventé ; les `[À FOURNIR]` restants sont signalés.
+- [ ] Aucun chiffre, prix, date ou témoignage inventé ; les `[À FOURNIR]` restants sont signalés et s'affichent entre crochets.
 - [ ] Tutoiement ou vouvoiement constant, comme choisi au départ.
 - [ ] Le lien Canva, ou la marche à suivre pour l'import, est remis à l'utilisateur.

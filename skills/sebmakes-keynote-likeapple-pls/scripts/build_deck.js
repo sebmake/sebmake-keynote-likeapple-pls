@@ -11,6 +11,12 @@
  * L'aperçu HTML reprend la même mise en page (mêmes coordonnées, mêmes tailles), sans les
  * animations. Ajoutez #qa à son adresse pour entourer en rouge les textes qui débordent.
  *
+ * Variantes de composition : slide.variante (nom exact des fiches design, par exemple « centre-entier »
+ * pour A13, « nom-au-centre » pour A14) pose le contenu visuel, la profondeur (ombre de contact sur
+ * fond clair, halo doux, objet qui sort du cadre) et, quand une image manque, le repli dessiné de la
+ * fiche, sans nombre ni marque. FIN, COLORIS et FRISE se posent sur n'importe quel archétype. Sans
+ * variante, chaque archétype garde son rendu d'origine. Liste : section « VARIANTES DE COMPOSITION ».
+ *
  * Tous les réglages visuels (corps, graisses, suivis, interlignes, positions, couleurs, durées) sont
  * dans STYLE, plus bas : ce sont les mesures de ../references/style-visuel.md.
  * Format de deck.json : voir ../references/deck-spec.md.
@@ -19,6 +25,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 let PptxGenJS;
 try {
@@ -72,7 +79,7 @@ const STYLE = {
   surtitre: { rapport: 0.42, min: 16, max: 28, ecart: 0.45 },
   A1: { corps: [100, 64], uneLigne: 6.4, large: [64, 56], deuxLignes: [72, 60], x: 0.6, w: 8.8, cy: 2.81 },
   // Slide finale (un mot) : plus gros, centré à 47,5 % H ; en pleine page d'accent, la seule du deck,
-  // si son texte (fond_sombre ou blanc) s'y lit à 4,5:1.
+  // si son texte (fond_sombre ou blanc) s'y lit à 4,5:1 et si theme.finale_accent ne vaut pas false.
   finale: { corps: [120, 64], cy: 2.67, pleinePageAccent: true, contraste: 4.5 },
   A2: { icone: 1.9, nom: [56, 32], ecart: 0.42, cy: 2.81 },
   A3: { corps: { 1: 80, 2: 80, 3: 80, 4: 68, 5: 56, 6: 44, 7: 40, 8: 36 }, plancher: 28, x: 1.0, w: 8.0, cy: 2.75 },
@@ -98,8 +105,8 @@ const STYLE = {
   SOURCES: { titre: [20, 14], liste: [13, 8] },
   source: [11, 9],
   // [À FOURNIR] : un emplacement, pas du contenu. Son libellé est estompé à toutes les tailles :
-  // couleur du texte qu'il remplace, à « texte » d'opacité (alpha du run dans le .pptx), jamais en
-  // dégradé ; souligné en pointillé d'accent, discret (« opacite »). Le soulignement d'une police
+  // couleur du texte qu'il remplace (jamais l'accent : voir markerInk), à « texte » d'opacité (alpha
+  // du run dans le .pptx), jamais en dégradé ; souligné en pointillé d'accent, discret (« opacite »). Le soulignement d'une police
   // grossit avec le corps (Arial : 0,07 em, soit 10 pt de points sous un chiffre de 144 pt) : au-dessus
   // de « seuil » pt, le moteur le remplace par un filet pointillé d'épaisseur fixe, posé sous la ligne
   // de base (« ecart » em, borné en points), le même dans le .pptx et l'aperçu, chacun placé pour sa police.
@@ -125,6 +132,8 @@ const H = 5.625;
 const M = 0.6;
 const FOURNIR_SRC = '\\[(?:À|A) FOURNIR[^\\]]*\\]|\\[TO PROVIDE[^\\]]*\\]';
 const VALIDER_SRC = '\\[(?:(?:À|A) VALIDER|TO VALIDATE|TO CONFIRM)[^\\]]*\\]';
+// Début de marqueur, fermé ou non : ce qui en reste après le retrait des marqueurs fermés est un oubli de « ] ».
+const OUVERT_SRC = '\\[(?:(?:À|A) (?:VALIDER|FOURNIR)|TO (?:VALIDATE|PROVIDE|CONFIRM))';
 const DATA_DIR = path.join(__dirname, '..', 'references', 'data');
 
 // Archétypes dont l'image (slide.image) est le contenu, pas le fond.
@@ -144,7 +153,7 @@ const LABELS = {
     image: 'Image', q: (s) => '« ' + s + ' »',
     cap: { interface: 'Capture à fournir', appareil: 'Capture à fournir', objet: 'Visuel à fournir', photo: 'Photo à fournir', carte: 'Carte à fournir', icone: 'Icône à fournir', logo: 'Logo à fournir', tuile: 'Image à fournir' },
     kind: { interface: 'capture', appareil: 'capture', objet: 'visuel', photo: 'photo', carte: 'carte', icone: 'icône', logo: 'logo', tuile: 'image' },
-    parts: { surtitre: 'surtitre', titre: 'titre', lignes: 'ligne', chiffre: 'chiffre', libelle: 'libellé', visuel: 'visuel', barres: 'barre', tuiles: 'tuile', centre: 'tuile centrale', prix: 'prix', nom: 'nom', date: 'date', citation: 'citation', auteur: 'auteur', logos: 'logo', note: 'note', fonction: 'fonction' }
+    parts: { surtitre: 'surtitre', titre: 'titre', lignes: 'ligne', chiffre: 'chiffre', libelle: 'libellé', visuel: 'visuel', barres: 'barre', tuiles: 'tuile', centre: 'tuile centrale', prix: 'prix', nom: 'nom', date: 'date', citation: 'citation', auteur: 'auteur', logos: 'logo', note: 'note', fonction: 'fonction', coches: 'coches' }
   },
   en: {
     build: 'BUILD', timing: 'TIMING', source: 'SOURCE', relay: 'handover', sep: ': ',
@@ -157,7 +166,7 @@ const LABELS = {
     image: 'Image', q: (s) => '“' + s + '”',
     cap: { interface: 'Screenshot to provide', appareil: 'Screenshot to provide', objet: 'Visual to provide', photo: 'Photo to provide', carte: 'Map to provide', icone: 'Icon to provide', logo: 'Logo to provide', tuile: 'Image to provide' },
     kind: { interface: 'screenshot', appareil: 'screenshot', objet: 'visual', photo: 'photo', carte: 'map', icone: 'icon', logo: 'logo', tuile: 'image' },
-    parts: { surtitre: 'kicker', titre: 'title', lignes: 'line', chiffre: 'figure', libelle: 'label', visuel: 'visual', barres: 'bar', tuiles: 'tile', centre: 'centre tile', prix: 'price', nom: 'name', date: 'date', citation: 'quote', auteur: 'author', logos: 'logo', note: 'note', fonction: 'role' }
+    parts: { surtitre: 'kicker', titre: 'title', lignes: 'line', chiffre: 'figure', libelle: 'label', visuel: 'visual', barres: 'bar', tuiles: 'tile', centre: 'centre tile', prix: 'price', nom: 'name', date: 'date', citation: 'quote', auteur: 'author', logos: 'logo', note: 'note', fonction: 'role', coches: 'checks' }
   }
 };
 
@@ -269,6 +278,14 @@ function textAccent(bg, accent, fg) {
   }
   return fg;
 }
+// Encre d'un [À FOURNIR] : la couleur du texte qu'il remplace, sauf l'accent. Un accent à 40 %
+// d'opacité vire au brun sur un fond sombre et se lit comme une vraie valeur mal imprimée : le
+// marqueur prend alors la couleur du texte (gris estompé), et seul son pointillé reste d'accent.
+function markerInk(c, color) {
+  if (!color || c.P.fond === 'accent') return color;
+  const acc = [c.T.accent, c.T.accent2, c.P.accent, c.P.accent2, c.P.accentTxt, c.P.accent2Txt].filter(Boolean).map((h) => String(h).toUpperCase());
+  return acc.includes(String(color).toUpperCase()) ? c.P.fg : color;
+}
 
 // ---------------------------------------------------------------------------
 // Typographie et mesure du texte (estimation prudente, commune au .pptx et à l'aperçu)
@@ -291,7 +308,7 @@ function charW(ch) {
   if (/[.,;:'’!|ijlI1]/.test(ch)) return 0.28;
   if (/[frt]/.test(ch)) return 0.37;
   if (/[mwMW@]/.test(ch)) return 0.86;
-  if (/[«»"“”()\-–—/]/.test(ch)) return 0.4;
+  if (/[«»"“”()[\]\-–—/]/.test(ch)) return 0.4;
   if (/[€$£%&#×]/.test(ch)) return 0.66;
   if (ch !== ch.toLowerCase()) return 0.7;
   return 0.55;
@@ -342,7 +359,9 @@ function wrapInfo(s, pt, heavy, w, track, role) {
 }
 // Marqueurs ------------------------------------------------------------------
 // [À VALIDER : texte] : une proposition, affichée comme du vrai contenu (marqueur retiré).
-// [À FOURNIR : libellé] : ce qui manque ; à l'écran, le libellé seul, estompé, souligné en pointillé.
+// [À FOURNIR : libellé] : ce qui manque ; à l'écran, le libellé seul, estompé, souligné en pointillé
+// (entre crochets pour Canva, qui perd l'estompé à l'import : voir parseInline).
+// Un marqueur peut contenir un \n : on le lit sur tout le texte, avant la coupure en lignes (para).
 function markerInner(m) {
   const s = String(m).slice(1, -1);
   const i = s.indexOf(':');
@@ -357,22 +376,28 @@ function fournirLabels(s) {
 function stripValider(s, found) {
   return str(s).replace(new RegExp(VALIDER_SRC, 'gi'), (m) => {
     const inner = markerInner(m);
-    if (found && inner && !found.includes(inner)) found.push(inner);
+    // Une proposition sur deux lignes est listée sur une seule.
+    const key = inner.replace(/\s*\n\s*/g, ' ');
+    if (found && key && !found.includes(key)) found.push(key);
     return inner;
   });
 }
-// Texte riche : *accent* et marqueurs [À FOURNIR …]
-function parseInline(text, lang) {
+// Texte riche : *accent* et marqueurs [À FOURNIR …]. crochets : le libellé garde des crochets
+// visibles (« [date] »), pour un format qui perd l'estompé (Canva).
+function parseInline(text, lang, crochets) {
   const out = [];
   const re = new RegExp('(' + FOURNIR_SRC + ')|\\*([^*]+)\\*', 'gi');
   let last = 0;
   let m;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push({ t: text.slice(last, m.index) });
-    if (m[1]) out.push({ t: markerInner(m[1]) || (LABELS[lang] || LABELS.fr).markerDefault, marker: true });
-    // Un [À FOURNIR] écrit dans un *accent* reste un marqueur (estompé, en couleur d'accent à 40 %),
+    if (m[1]) {
+      const label = markerInner(m[1]) || (LABELS[lang] || LABELS.fr).markerDefault;
+      out.push({ t: crochets ? '[' + label + ']' : label, marker: true });
+    }
+    // Un [À FOURNIR] écrit dans un *accent* reste un marqueur (estompé, dans la couleur du texte),
     // jamais un texte en clair en accent plein.
-    else if (hasFournir(m[2])) parseInline(m[2], lang).forEach((r) => { if (r.t) out.push(Object.assign(r, { accent: true })); });
+    else if (hasFournir(m[2])) parseInline(m[2], lang, crochets).forEach((r) => { if (r.t) out.push(Object.assign(r, { accent: true })); });
     else out.push({ t: m[2], accent: true });
     last = re.lastIndex;
   }
@@ -403,6 +428,90 @@ function shortLabel(s, maxWords) {
 // ---------------------------------------------------------------------------
 // Images : dimensions lues dans l'en-tête (PNG, JPEG, GIF), sans dépendance
 // ---------------------------------------------------------------------------
+// Partie opaque d'un PNG détouré (RGBA ou gris + alpha, 8 bits, non entrelacé), en fraction de
+// l'image : un produit livré avec des marges transparentes se cale, s'ombre et se coupe sur son
+// contour réel, pas sur le cadre du fichier. null si l'image est opaque ou illisible.
+const CONTENT_CACHE = new Map();
+function pngContent(file, buf) {
+  if (CONTENT_CACHE.has(file)) return CONTENT_CACHE.get(file);
+  let box = null;
+  try {
+    box = pngAlphaBox(buf);
+  } catch (e) {
+    box = null;
+  }
+  if (box && box.w > 0.985 && box.h > 0.985) box = null;
+  CONTENT_CACHE.set(file, box);
+  return box;
+}
+function pngAlphaBox(buf) {
+  let o = 8;
+  let w = 0;
+  let h = 0;
+  let depth = 0;
+  let ct = 0;
+  let lace = 0;
+  const idat = [];
+  while (o + 8 <= buf.length) {
+    const len = buf.readUInt32BE(o);
+    const type = buf.toString('ascii', o + 4, o + 8);
+    const d = buf.slice(o + 8, o + 8 + len);
+    if (type === 'IHDR') {
+      w = d.readUInt32BE(0);
+      h = d.readUInt32BE(4);
+      depth = d[8];
+      ct = d[9];
+      lace = d[12];
+    } else if (type === 'IDAT') idat.push(d);
+    else if (type === 'IEND') break;
+    o += 12 + len;
+  }
+  if (depth !== 8 || lace || (ct !== 6 && ct !== 4) || !w || !h || w * h > 40e6) return null;
+  const bpp = ct === 6 ? 4 : 2;
+  const stride = w * bpp;
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  if (raw.length < (stride + 1) * h) return null;
+  let prev = Buffer.alloc(stride);
+  let cur = Buffer.alloc(stride);
+  let x0 = w;
+  let y0 = h;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)];
+    const at = y * (stride + 1) + 1;
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bpp ? cur[i - bpp] : 0;
+      const b = prev[i];
+      const cc = i >= bpp ? prev[i - bpp] : 0;
+      let v = raw[at + i];
+      if (f === 1) v += a;
+      else if (f === 2) v += b;
+      else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) {
+        const pp = a + b - cc;
+        const pa = Math.abs(pp - a);
+        const pb = Math.abs(pp - b);
+        const pc = Math.abs(pp - cc);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : cc;
+      }
+      cur[i] = v & 255;
+    }
+    for (let x = 0; x < w; x++) {
+      if (cur[x * bpp + bpp - 1] > 12) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        y1 = y;
+      }
+    }
+    const t = prev;
+    prev = cur;
+    cur = t;
+  }
+  if (x1 < 0) return null;
+  return { x: x0 / w, y: y0 / h, w: (x1 - x0 + 1) / w, h: (y1 - y0 + 1) / h };
+}
 function imageInfo(file) {
   let buf;
   try {
@@ -411,7 +520,7 @@ function imageInfo(file) {
     return null;
   }
   if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
-    return { type: 'png', mime: 'image/png', w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), buf };
+    return { type: 'png', mime: 'image/png', w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), buf, content: pngContent(file, buf) };
   }
   if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
     let o = 2;
@@ -535,6 +644,7 @@ function resolveTheme(theme, mode, warnings, fontNotes) {
   T.texteSec = secondary(c.texte_secondaire, T.texte, T.fondClair, 'texte_secondaire');
   T.texteSecSombre = secondary(c.texte_secondaire_sur_sombre, T.texteSombre, T.fondSombre, 'texte_secondaire_sur_sombre');
   T.pointAccent = theme.point_accent !== false;
+  T.finaleAccent = theme.finale_accent !== false;
 
   const pols = theme.polices || theme.fonts || {};
   const ft = fontSpec(pols.titre || pols.title, 'Arial');
@@ -688,9 +798,11 @@ class SlideCtx {
     let fond = String(slide.fond || '').toLowerCase();
     if (!['sombre', 'clair', 'image', 'accent'].includes(fond)) fond = 'sombre';
     // Slide finale d'un mot (A1) : pleine page en couleur d'accent, la seule du deck, si le texte
-    // s'y lit à 4,5:1 (style-visuel, « Slide finale »).
-    this.isFinal = index === env.finalIndex && arch === 'A1';
-    if (this.isFinal && STYLE.finale.pleinePageAccent && (fond === 'sombre' || fond === 'clair')) {
+    // s'y lit à 4,5:1 (style-visuel, « Slide finale ») et si le thème le permet (theme.finale_accent :
+    // false pour une charte qui plafonne la surface d'accent ; la finale garde alors son fond).
+    const vf = normKey(slide.variante);
+    this.isFinal = index === env.finalIndex && (arch === 'A1' || arch === 'FIN') && (!vf || vf === 'aplat' || vf === 'mot-final');
+    if (this.isFinal && STYLE.finale.pleinePageAccent && this.T.finaleAccent && (fond === 'sombre' || fond === 'clair')) {
       const PA = palette(this.T, 'accent');
       if (contrast(PA.bg, PA.fg) >= STYLE.finale.contraste) fond = 'accent';
     }
@@ -794,11 +906,17 @@ class SlideCtx {
   // point (point final en accent), grad (dégradé du chiffre héros).
   para(text, o) {
     o = o || {};
-    const lines = str(text).split(/\n/);
+    // Les marqueurs se lisent sur tout le texte, avant la coupure en lignes : une proposition
+    // [À VALIDER : …\n…] garde ses deux lignes ; un libellé [À FOURNIR] revient sur une seule.
+    const whole = stripValider(text, this.proposals).replace(new RegExp(FOURNIR_SRC, 'gi'), (m) => m.replace(/\s*\n\s*/g, ' '));
+    if (new RegExp(OUVERT_SRC, 'i').test(whole.replace(new RegExp(FOURNIR_SRC, 'gi'), ''))) {
+      this.warn('Marqueur sans « ] » final : il s\'affiche tel quel. Fermez-le dans deck.json.');
+    }
+    const lines = whole.split(/\n/);
     return lines.map((line, li) => {
-      const raw = stripValider(line, this.proposals);
+      const raw = line;
       fournirLabels(raw).forEach((l) => { if (l && !this.fournirs.includes(l)) this.fournirs.push(l); });
-      let runs = parseInline(typo(raw, this.lang), this.lang);
+      let runs = parseInline(typo(raw, this.lang), this.lang, this.env.crochets);
       if (runs.some((r) => r.accent)) this.accentWords = true;
       if (o.point && this.T.pointAccent) runs = accentPoint(runs);
       // Dégradé du chiffre héros : jamais sur un [À FOURNIR], qui reste estompé, d'une seule couleur.
@@ -1528,7 +1646,7 @@ const K = STYLE.interligne;
 const FULL_W = W - 2 * M;
 // Texte tel qu'il s'affiche (marqueurs retirés), pour estimer une largeur.
 function shownText(c, s) {
-  return parseInline(typo(stripValider(s), c.lang), c.lang).map((r) => r.t).join('');
+  return parseInline(typo(stripValider(s), c.lang), c.lang, c.env.crochets).map((r) => r.t).join('');
 }
 // Essais d'un mot ou d'un nom très gros (A1) : une ligne dans 6,4 in, puis une ligne large, puis deux lignes.
 function bigStages(max, multi) {
@@ -1683,7 +1801,7 @@ R.A7 = (c) => {
   if (!lines.length) lines.push(c.f('lignes', 'lignes'));
   // Pas des lignes : 1,95 cap (3 à 6 lignes), 3,1 cap (2 lignes) ; l'interligne reste celui des
   // titres, le reste du pas va en espace après la ligne.
-  const pitchK = lines.length === 2 ? K.liste2 : K.liste;
+  const pitchK = c._pitchK || (lines.length === 2 ? K.liste2 : K.liste);
   const paras = listParas(c, lines, { color: c.P.fg, activeColor: c.P.fg, idleColor: c.P.fg2, font: 'titre', gapK: pitchK - K.titre });
   const stages = [{ size: S.lignes[0], min: S.lignes[1], maxLines: 1 }, { size: S.lignes[1], min: 24, maxLines: 2 }];
   const t = centerBox(c, { x: S.x, w: S.w, cy: S.cy, paras, stages, wt: 'semi', align: 'center', font: 'titre', lh: K.titre, name: 'Liste' });
@@ -2194,6 +2312,16 @@ function markerRules(c) {
 function composeSlide(deck, slide, index, env) {
   const c = new SlideCtx(deck, slide, index, env);
   let fn = R[c.arch];
+  // Variante de composition (fiches design) : sans variante, le rendu d'origine de l'archétype.
+  const hit = slide.variante || VARIANTE_DEFAUT[c.arch] ? resolveVariant(c.arch, slide.variante) : null;
+  if (hit && hit.fn) {
+    c.variante = hit.key;
+    c.renderArch = hit.arch;
+    fn = hit.fn;
+  } else if (slide.variante) {
+    const known = variantNames(c.arch);
+    c.warn('Variante « ' + slide.variante + ' » inconnue pour ' + c.arch + (known.length ? ' (variantes : ' + known.join(', ') + ')' : '') + ' : rendu par défaut de l\'archétype.');
+  }
   if (c.arch === 'AF') {
     const prevu = String(c.t.archetype_prevu || slide.archetype_prevu || '').toUpperCase();
     if (prevu && prevu !== 'AF' && R[prevu]) {
@@ -2201,8 +2329,10 @@ function composeSlide(deck, slide, index, env) {
       fn = R[prevu];
     }
   }
-  if (c.fond === 'image' && !FULL_BLEED.has(c.renderArch)) {
-    const bgSpec = slide.image_fond || (!CONTENT_IMAGE.has(c.renderArch) ? slide.image : null);
+  // Avec une variante, le fond ne vient que d'image_fond (slide.image est son contenu), et rien
+  // pour une variante qui pose déjà sa photo à fond perdu.
+  if (c.fond === 'image' && !FULL_BLEED.has(c.renderArch) && !(c.variante && OWN_PHOTO.has(c.variante))) {
+    const bgSpec = slide.image_fond || (!CONTENT_IMAGE.has(c.renderArch) && !c.variante ? slide.image : null);
     if (bgSpec) {
       c.image({ x: 0, y: 0, w: W, h: H }, bgSpec, 'cover', 'Image de fond', { kind: 'photo', full: true });
       const voile = slide.voile === undefined ? 45 : Math.max(0, Math.min(100, Number(slide.voile) || 0));
@@ -2301,6 +2431,3134 @@ const GROUPS = {
 };
 GROUPS.A11 = GROUPS.A9;
 ['A18', 'A22', 'A23', 'A24', 'A25'].forEach((k) => { GROUPS[k] = GROUPS.A12; });
+// Groupes des variantes (le rendu sans variante garde les groupes d'origine).
+const VGROUPS = {};
+VGROUPS.A10 = [G('visuel', KW.visuel)];
+VGROUPS.A13 = [G('visuel', KW.visuel)];
+VGROUPS.A15 = [SUR, G('titre', KW.titre), G('tuiles', KW.tuiles)];
+GROUPS.FIN = [G('visuel', KW.visuel), SUR, G('titre', /\b(?:signes?|logos?|mots?|noms?|titres?|evenements?)\b/), G('libelle', /\b(?:lignes?|lieux?|signatures?|libelles?)\b/), G('note', /\b(?:mentions?|sources?)\b/)];
+GROUPS.COLORIS = [G('visuel', /\b(?:coloris|couleurs?|produits?|rangees?|murs?|eventails?|colou?rs?|colorways?)\b/, { multi: 'auto' })];
+GROUPS.FRISE = [SUR, G('titre', KW.titre), G('tuiles', /\b(?:jalons?|tuiles?|dates?|milestones?)\b/, { multi: true })];
+
+// ===========================================================================
+// VARIANTES DE COMPOSITION (fiches design, slide.variante). Sans variante, chaque archétype garde
+// son rendu d'origine (R.Axx plus haut). Une variante pose le contenu visuel de la fiche : produit
+// mis en lumière, capture dans un appareil générique, photo à fond perdu, tuiles, icônes, matières ;
+// la profondeur (ombre de contact sur fond clair, halo doux, objet qui sort du cadre) ; et, quand
+// l'image manque, le repli dessiné de la fiche, sans nombre ni marque.
+// Positions des fiches en % du cadre (x, y, l, h), converties en pouces par P().
+// Halos, ombres et dégradés de transparence : des PNG générés ici (zlib, sans dépendance), posés
+// comme des images ; ils se lisent dans PowerPoint, Keynote et Canva.
+// ===========================================================================
+
+const VS = {
+  ppi: 48,                                   // résolution des halos et ombres générés (ils sont flous)
+  ombre: { opacite: 0.24, hauteur: 0.085, largeur: 0.78 },  // ombre de contact, fond clair seulement
+  halo: { produit: 0.11, accent: 0.42, etendue: 0.42 },     // halo doux : neutre derrière un produit (fond sombre), d'accent pour un halo de fiche
+  // Silhouette (repli d'un produit) : gris du volume (part du texte dans le fond), arête claire de 2 %
+  // de sa largeur, et lumière de studio (haut éclairci, bas assombri, arête, reflet en haut à gauche).
+  silhouette: {
+    sombre: 0.3, clair: 0.15, arete: 0.022,
+    lumiereSombre: { haut: 0.16, bas: 0.3, arete: 0.5, reflet: 0.2 },
+    lumiereClair: { haut: 0.55, bas: 0.12, arete: 0.75, reflet: 0.5 },
+    teinte: { haut: 0.22, bas: 0.22, arete: 0.55, reflet: 0.24 }
+  },
+  appareil: { coin: 0.13, bord: 0.03, tablette: 0.075, portable: 0.035 },
+  voile: { photo: 30, chiffre: 45, contenu: 60 },           // voile noir (%) sous un texte posé sur une photo
+  tuile: { rayon: 0.2, libelle: 11, pad: 0.06 }
+};
+
+// Zone d'une fiche (en % du cadre) → pouces.
+function P(x, y, l, h) {
+  return { x: x * W / 100, y: y * H / 100, w: l * W / 100, h: h * H / 100 };
+}
+function inter(a, b) {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.w, b.x + b.w);
+  const y2 = Math.min(a.y + a.h, b.y + b.h);
+  return x2 > x + 1e-4 && y2 > y + 1e-4 ? { x, y, w: x2 - x, h: y2 - y } : null;
+}
+function grow(b, dx, dy) {
+  return { x: b.x - dx, y: b.y - dy, w: b.w + 2 * dx, h: b.h + 2 * (dy === undefined ? dx : dy) };
+}
+function darkBg(c) {
+  return lum(c.P.bg) < 0.35;
+}
+
+// PNG (RGBA 8 bits), encodé à la main : signature, IHDR, IDAT (zlib), IEND.
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let v = n;
+    for (let k = 0; k < 8; k++) v = v & 1 ? 0xedb88320 ^ (v >>> 1) : v >>> 1;
+    t[n] = v;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let v = -1;
+  for (let i = 0; i < buf.length; i++) v = CRC_TABLE[(v ^ buf[i]) & 0xff] ^ (v >>> 8);
+  return (v ^ -1) >>> 0;
+}
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(td));
+  return Buffer.concat([len, td, crc]);
+}
+function encodePng(w, h, rgba) {
+  const stride = w * 4 + 1;
+  const raw = Buffer.alloc(stride * h);
+  for (let y = 0; y < h; y++) rgba.copy(raw, y * stride + 1, y * w * 4, (y + 1) * w * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', zlib.deflateSync(raw, { level: 9 })), pngChunk('IEND', Buffer.alloc(0))]);
+}
+const GEN_CACHE = new Map();
+// Image générée : alpha(x, y) en pouces dans la boîte, de 0 à 1, d'une seule couleur (ou color(x, y)).
+function genImage(c, box, color, alpha, name, o) {
+  o = o || {};
+  const ppi = o.ppi || VS.ppi;
+  let pw = Math.max(6, Math.round(box.w * ppi));
+  let ph = Math.max(6, Math.round(box.h * ppi));
+  const cap = 700000;
+  if (pw * ph > cap) {
+    const k = Math.sqrt(cap / (pw * ph));
+    pw = Math.max(6, Math.round(pw * k));
+    ph = Math.max(6, Math.round(ph * k));
+  }
+  const key = (o.key || name) + '|' + color + '|' + pw + 'x' + ph + '|' + round2(box.w) + 'x' + round2(box.h);
+  let buf = GEN_CACHE.get(key);
+  if (!buf) {
+    const px = Buffer.alloc(pw * ph * 4);
+    const rgb = rgbOf(color);
+    for (let j = 0; j < ph; j++) {
+      const y = (j + 0.5) / ph * box.h;
+      for (let i = 0; i < pw; i++) {
+        const x = (i + 0.5) / pw * box.w;
+        // Bord de la boîte : fondu à zéro, pour qu'aucun halo ne laisse voir son rectangle.
+        const edge = o.edge === false ? 1 : smooth01(Math.min(x, box.w - x, y, box.h - y) / (Math.min(box.w, box.h) * 0.14));
+        const a = clamp(alpha(x, y) * edge, 0, 1);
+        const k = (j * pw + i) * 4;
+        const col = o.colorAt ? o.colorAt(x, y) : rgb;
+        px[k] = col[0];
+        px[k + 1] = col[1];
+        px[k + 2] = col[2];
+        px[k + 3] = Math.round(a * 255);
+      }
+    }
+    buf = encodePng(pw, ph, px);
+    GEN_CACHE.set(key, buf);
+  }
+  return c.add({ k: 'image', gen: true, x: box.x, y: box.y, w: box.w, h: box.h, info: { type: 'png', mime: 'image/png', w: pw, h: ph, buf }, mode: 'fill', name: name || 'Halo', alt: '', g: o.g, sub: o.sub, rot: o.rot });
+}
+// Profils d'alpha.
+function smooth01(t) {
+  t = clamp(t, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+// Ellipse floue qui remplit la boîte : A au centre, 0 au bord.
+function alphaEllipse(A, k, box) {
+  const rx = box.w / 2;
+  const ry = box.h / 2;
+  return (x, y) => {
+    const dx = (x - rx) / rx;
+    const dy = (y - ry) / ry;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= 1) return 0;
+    return A * Math.exp(-k * d2) * (1 - smooth01((d2 - 0.55) / 0.45));
+  };
+}
+// Distance signée à un rectangle arrondi (r : rectangle relatif à la boîte, rad : rayon).
+function sdRound(x, y, r, rad) {
+  const cx = r.x + r.w / 2;
+  const cy = r.y + r.h / 2;
+  const qx = Math.abs(x - cx) - (r.w / 2 - rad);
+  const qy = Math.abs(y - cy) - (r.h / 2 - rad);
+  const ox = Math.max(qx, 0);
+  const oy = Math.max(qy, 0);
+  return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - rad;
+}
+// Halo autour d'un rectangle arrondi : A sur son bord, décroissance gaussienne (sigma en pouces).
+function alphaAround(A, r, rad, sigma, inside) {
+  return (x, y) => {
+    const d = sdRound(x, y, r, rad);
+    if (d <= 0) return inside === undefined ? A : inside;
+    return A * Math.exp(-(d * d) / (2 * sigma * sigma));
+  };
+}
+// Anneau flou : rayon r (pouces) autour du centre de la boîte.
+function alphaRing(A, r, sigma, box) {
+  return (x, y) => {
+    const d = Math.hypot(x - box.w / 2, y - box.h / 2) - r;
+    return A * Math.exp(-(d * d) / (2 * sigma * sigma));
+  };
+}
+
+// Ombre de contact (fond clair seulement) : une ellipse sombre très floue sous l'objet.
+function contactShadow(c, r, o) {
+  o = o || {};
+  if (darkBg(c) || c.slide.profondeur === false) return null;
+  r = r.content || r;
+  const S = VS.ombre;
+  const sh = clamp(r.h * S.hauteur, 0.09, 0.42);
+  const sw = r.w * (o.largeur || S.largeur);
+  const box = { x: r.x + (r.w - sw) / 2, y: r.y + r.h - sh * 0.5, w: sw, h: sh };
+  return genImage(c, box, mix(c.P.bg, '000000', 0.85), alphaEllipse(o.opacite || S.opacite, 1.6, box), 'Ombre de contact', { g: o.g, sub: o.sub, key: 'ombre' });
+}
+// Halo doux derrière un objet : neutre (couleur du texte, très léger) sur fond sombre, ou de la
+// couleur donnée (accent, coloris) quand la fiche le demande.
+function softHalo(c, r, o) {
+  o = o || {};
+  if (c.slide.profondeur === false) return null;
+  const color = o.color || c.P.fg;
+  const A = o.opacite !== undefined ? o.opacite : VS.halo.produit;
+  if (!o.color && !darkBg(c)) return null;
+  r = r.content || r;
+  const e = o.etendue !== undefined ? o.etendue : VS.halo.etendue;
+  const box = grow(r, r.w * e, r.h * e);
+  return genImage(c, box, color, alphaEllipse(A, 2.4, box), o.name || 'Halo', { g: o.g, sub: o.sub, key: 'halo' + A });
+}
+
+// ---------------------------------------------------------------------------
+// Images d'une variante : posées avec le traitement de la fiche (ombre, halo, fond perdu, coins),
+// recadrées par une zone (clip : une capture coupée par le bord d'une tuile), ou remplacées par le
+// repli dessiné de la fiche. L'image manquante part dans les notes (« Image à fournir »).
+// ---------------------------------------------------------------------------
+const BRIEF = {
+  fr: {
+    objet: 'PNG détouré à fond transparent, recadré au plus près, 2000 px de haut au moins',
+    interface: 'capture nue (sans cadre d\'appareil), à la définition de l\'écran',
+    appareil: 'capture nue (sans cadre d\'appareil), à la définition de l\'écran',
+    photo: 'photo JPEG de 1920 px de large au moins, sans texte incrusté',
+    icone: 'PNG carré de 1024 px, fond transparent',
+    logo: 'logo monochrome, PNG à fond transparent',
+    tuile: 'image JPEG ou PNG de 1200 px de large au moins',
+    carte: 'image de 1920 px de large au moins'
+  },
+  en: {
+    objet: 'transparent cut-out PNG, tightly cropped, at least 2000 px tall',
+    interface: 'bare screenshot (no device frame), at screen resolution',
+    appareil: 'bare screenshot (no device frame), at screen resolution',
+    photo: 'JPEG photo at least 1920 px wide, no text burnt in',
+    icone: 'square 1024 px PNG, transparent background',
+    logo: 'single-colour logo, transparent PNG',
+    tuile: 'JPEG or PNG at least 1200 px wide',
+    carte: 'image at least 1920 px wide'
+  }
+};
+function loadImg(c, spec) {
+  spec = c.imageSpec(spec);
+  if (!spec || !spec.chemin) return null;
+  const abs = path.resolve(c.env.deckDir, spec.chemin);
+  const info = imageInfo(abs);
+  return info && info.w > 0 && info.h > 0 ? { spec, abs, info, attendu: str(spec.attendu || spec.libelle || spec.alt) } : null;
+}
+// Rectangle de l'image entière : contenue dans la boîte, ou qui la couvre.
+// Un PNG détouré se cale sur sa partie opaque (info.content) : le rectangle rendu est celui du fichier
+// entier, et r.content celui de l'objet visible (ombre, halo, filets et alignements s'y accrochent).
+function fitRect(box, info, mode, ax, ay) {
+  const cb = mode !== 'cover' && info.content ? info.content : null;
+  const iw = info.w * (cb ? cb.w : 1);
+  const ih = info.h * (cb ? cb.h : 1);
+  const s = mode === 'cover' ? Math.max(box.w / iw, box.h / ih) : Math.min(box.w / iw, box.h / ih);
+  const w = iw * s;
+  const h = ih * s;
+  const x = ax === 'left' ? box.x : ax === 'right' ? box.x + box.w - w : box.x + (box.w - w) / 2;
+  const y = ay === 'top' ? box.y : ay === 'bottom' ? box.y + box.h - h : box.y + (box.h - h) / 2;
+  if (!cb) return { x, y, w, h };
+  const fw = w / cb.w;
+  const fh = h / cb.h;
+  return { x: x - cb.x * fw, y: y - cb.y * fh, w: fw, h: fh, content: { x, y, w, h } };
+}
+// Image posée par son rectangle entier ; seule la partie dans « clip » est gardée (recadrage).
+function putImage(c, im, rect, o) {
+  o = o || {};
+  const vis = o.clip ? inter(rect, o.clip) : rect;
+  if (!vis) return null;
+  const it = { k: 'image', abs: im.abs, info: im.info, mode: 'fill', radius: o.radius || 0, name: o.name || 'Image', alt: im.attendu || path.basename(im.abs), g: o.g, sub: o.sub, x: vis.x, y: vis.y, w: vis.w, h: vis.h, rot: o.rot, gray: o.gray };
+  if (vis.w < rect.w - 1e-3 || vis.h < rect.h - 1e-3) it.full = rect;
+  return c.add(it);
+}
+// Image manquante d'une variante : la consigne part dans les notes (avec le brief du visuel).
+function registerMissing(c, spec, kind, defaultLabel, o) {
+  o = o || {};
+  spec = c.imageSpec(spec);
+  const attendu = (spec && str(spec.attendu || spec.libelle || spec.alt)) || defaultLabel || '';
+  if (spec && spec.chemin) {
+    const abs = path.resolve(c.env.deckDir, spec.chemin);
+    c.warn('Image « ' + spec.chemin + ' » ' + (fs.existsSync(abs) ? 'illisible (PNG, JPEG ou GIF attendu)' : c.L.missingFile) + ' : repli dessiné à la place, à remplacer.');
+  } else {
+    c.warn('Image attendue' + (attendu ? ' (« ' + attendu + ' »)' : '') + ' : repli dessiné à la place.');
+  }
+  c.missing.push({ kind, attendu, chemin: spec && spec.chemin ? spec.chemin : '', brief: (BRIEF[c.lang] || BRIEF.fr)[kind] });
+  return attendu;
+}
+// Le repli dessiné, groupé dans le .pptx sous le nom de ce qu'il faut fournir.
+function missingVisual(c, spec, kind, defaultLabel, o, draw) {
+  const attendu = registerMissing(c, spec, kind, defaultLabel, o);
+  const cap = c.L.cap[kind] || c.L.cap.interface;
+  const short = shortLabel(str(stripValider(attendu)).replace(new RegExp(FOURNIR_SRC, 'gi'), (m) => markerInner(m)), 6);
+  const ph = { id: c.phs.length, name: cap + (short ? ' · ' + short : ''), kind, g: o.g, sub: o.sub };
+  c.phs.push(ph);
+  const prev = c.curPh;
+  c.curPh = ph.id;
+  try {
+    draw();
+  } finally {
+    c.curPh = prev;
+  }
+}
+// Le visuel d'une zone. o : kind (objet, interface, photo, icone, logo, tuile), mode (contain, cover),
+// alignX/alignY, clip, radius, ombre (contact, fond clair), halo (true : neutre ; couleur : teinté),
+// repli(box) (dessin quand l'image manque), label (ce que l'image doit montrer, par défaut), g, sub.
+// Retourne le rectangle de l'image posée, ou null pour un repli.
+function visual(c, box, spec, o) {
+  o = o || {};
+  const im = loadImg(c, spec);
+  if (im) {
+    const mode = im.spec.ajustement === 'couvrir' ? 'cover' : im.spec.ajustement === 'contenir' ? 'contain' : (o.mode || 'contain');
+    const r = fitRect(box, im.info, mode, o.alignX, o.alignY);
+    const clip = mode === 'cover' ? (o.clip ? inter(box, o.clip) : box) : o.clip;
+    if (o.halo) softHalo(c, r, { color: o.halo === true ? undefined : o.halo, opacite: o.haloA, g: o.g, sub: o.sub, etendue: o.haloE });
+    if (o.ombre) contactShadow(c, r, { g: o.g, sub: o.sub });
+    putImage(c, im, r, { clip, radius: o.radius, name: o.name, g: o.g, sub: o.sub, rot: o.rot, gray: o.gray });
+    return r.content || r;
+  }
+  const kind = o.kind || 'objet';
+  if (o.repli) missingVisual(c, spec, kind, o.label, o, () => o.repli(box));
+  else drawPlaceholder(c, box, kind, registerMissing(c, spec, kind, o.label, o), Object.assign({}, o, { name: o.name }));
+  return null;
+}
+
+// Rognage d'un dessin : les formes ajoutées depuis « start » sont coupées par le rectangle « clip »
+// (une capture schématique qui sort d'une tuile). Les rectangles sont tronqués ; un rectangle arrondi
+// coupé d'un seul côté garde ses coins arrondis de l'autre côté ; une forme coupée autrement disparaît.
+function clipItems(c, start, clip) {
+  const out = [];
+  c.items.slice(start).forEach((it) => {
+    if (!['rect', 'round', 'ellipse'].includes(it.k)) {
+      out.push(it);
+      return;
+    }
+    const v = inter(it, clip);
+    if (!v) return;
+    if (Math.abs(v.w - it.w) < 1e-3 && Math.abs(v.h - it.h) < 1e-3) {
+      out.push(it);
+      return;
+    }
+    if (it.k === 'ellipse') return;
+    if (it.k === 'rect') {
+      out.push(Object.assign({}, it, v));
+      return;
+    }
+    const r = Math.min(it.radius || 0, it.w / 2, it.h / 2);
+    const cutT = v.y > it.y + 1e-3;
+    const cutB = v.y + v.h < it.y + it.h - 1e-3;
+    const cutL = v.x > it.x + 1e-3;
+    const cutR = v.x + v.w < it.x + it.w - 1e-3;
+    const sides = [cutT, cutB, cutL, cutR].filter(Boolean).length;
+    if (sides === 1 && r > 0.005 && (cutT || cutB ? v.h > 2 * r : v.w > 2 * r)) {
+      // Partie arrondie (du côté non coupé) + rectangle plein jusqu'à la coupe.
+      if (cutB) {
+        out.push(Object.assign({}, it, { y: v.y, h: 2 * r }));
+        out.push(Object.assign({}, it, { k: 'rect', y: v.y + r, h: v.h - r, name: it.name }));
+      } else if (cutT) {
+        out.push(Object.assign({}, it, { y: v.y + v.h - 2 * r, h: 2 * r }));
+        out.push(Object.assign({}, it, { k: 'rect', y: v.y, h: v.h - r, name: it.name }));
+      } else if (cutR) {
+        out.push(Object.assign({}, it, { x: v.x, w: 2 * r }));
+        out.push(Object.assign({}, it, { k: 'rect', x: v.x + r, w: v.w - r, name: it.name }));
+      } else {
+        out.push(Object.assign({}, it, { x: v.x + v.w - 2 * r, w: 2 * r }));
+        out.push(Object.assign({}, it, { k: 'rect', x: v.x, w: v.w - r, name: it.name }));
+      }
+      return;
+    }
+    out.push(Object.assign({}, it, v, { k: 'rect' }));
+  });
+  // Les noms restent uniques sur la slide (volet de sélection, appariement des formes du .pptx).
+  c.items.length = start;
+  out.forEach((it) => {
+    const base = String(it.name || it.k).replace(/ \d+$/, '');
+    const n = (c.names[base] || 0) + 1;
+    c.names[base] = n;
+    it.name = n > 1 ? base + ' ' + n : base;
+    c.items.push(it);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Appareils génériques (jamais reconnaissables) : coins à 13 % de la largeur, bord de 3 %, ni encoche,
+// ni îlot, ni bouton, ni caméra, ni logo. La capture de l'utilisateur couvre l'écran ; sans capture,
+// une interface schématique (barres grises, une ligne en accent, aucun texte ni chiffre).
+// ---------------------------------------------------------------------------
+// Corps d'appareil : verre noir et fin liseré métallique, sur tous les fonds (le corpus montre des
+// cadres noirs, jamais gris clair). Sur fond sombre, le liseré seul détache l'appareil du fond.
+function deviceColors(c) {
+  const dark = darkBg(c);
+  const ink = lum(c.T.texte) < 0.35 ? c.T.texte : '15181C';
+  const body = dark ? mix(c.P.bg, '000000', 0.55) : mix(c.P.bg, ink, 0.9);
+  return { body, base: dark ? mix(c.P.bg, c.P.fg, 0.34) : mix(c.P.bg, ink, 0.22), rim: dark ? mix(c.P.bg, c.P.fg, 0.42) : mix(body, 'FFFFFF', 0.32) };
+}
+// Contenu schématique d'un écran portrait (téléphone, boîtier) : un titre, des cartes, une seule en avant.
+function drawScreenPortrait(c, s, C, rad, o) {
+  o = o || {};
+  const SC = STYLE.schema;
+  c.round({ x: s.x, y: s.y, w: s.w, h: s.h, fill: C.card, radius: rad, name: 'Schéma écran' });
+  const p = s.w * 0.09;
+  const ix = s.x + p;
+  const iw = s.w - 2 * p;
+  const bh = Math.max(0.045, Math.min(SC.barre, s.w * 0.035));
+  const pas = Math.max(bh * 1.9, Math.min(SC.pas, s.h * 0.035));
+  pill(c, ix, s.y + s.h * 0.08, iw * 0.55, bh * 1.4, C.strong);
+  pill(c, ix, s.y + s.h * 0.08 + pas * 1.25, iw * 0.35, bh, C.bar);
+  const ct = s.y + s.h * 0.2;
+  const n = s.h / s.w > 1.6 ? 4 : 3;
+  const cardH = s.h * (n === 4 ? 0.12 : 0.16);
+  const gap = s.h * 0.025;
+  const hi = o.hi === undefined ? 1 : o.hi;
+  for (let i = 0; i < n; i++) {
+    const y = ct + i * (cardH + gap);
+    const hot = i === hi && !C.mute;
+    c.round({ x: ix, y, w: iw, h: cardH, fill: hot ? C.tint : C.sub, radius: Math.min(0.1, cardH * 0.25), name: 'Schéma carte' });
+    const d = cardH * 0.42;
+    c.ellipse({ x: ix + cardH * 0.25, y: y + (cardH - d) / 2, w: d, h: d, fill: C.bar, name: 'Schéma' });
+    const tx = ix + cardH * 0.25 + d + cardH * 0.22;
+    const tw = ix + iw - tx - cardH * 0.25;
+    const ty = y + cardH / 2 - (pas * 0.8 + bh) / 2;
+    if (hot) hiBar(c, C, tx, ty, tw * SC.longueurs[i % 3], bh);
+    else pill(c, tx, ty, tw * SC.longueurs[i % 3], bh, C.strong);
+    pill(c, tx, ty + pas * 0.8, tw * 0.5, bh, C.bar);
+  }
+  if (s.h / s.w > 1.6) pill(c, ix, s.y + s.h * 0.9, iw, Math.max(bh * 2.6, s.h * 0.055), C.strong, 'Schéma bouton');
+}
+// Écran paysage : la fenêtre schématique du moteur, aux coins de l'écran.
+function drawScreenLandscape(c, s, C, rad, variant) {
+  const rnd = rng(17 * (c.index + 1) + Math.round(s.x * 10));
+  const start = c.items.length;
+  drawWindow(c, s, Object.assign({}, C, { shadow: false }), rnd, variant || interfaceVariant('', c.index));
+  const card = c.items[start];
+  if (card && card.k === 'round') card.radius = rad;
+  if (C.mute) c.items.slice(start).forEach((it) => { if (/en avant/.test(it.name || '')) it.fill = C.bar; });
+}
+function muteColors(C) {
+  return Object.assign({}, C, { mute: true, tint: C.sub, accent: C.soft, accentFaint: false });
+}
+// type : telephone, tablette, portable, boitier. box : la zone « appareil » de la fiche.
+// o.capture : spec de la capture ; o.mute : pas d'accent dans le schéma ; o.g, o.sub ; o.label.
+function drawDevice(c, box, type, o) {
+  o = o || {};
+  const D = VS.appareil;
+  const col = deviceColors(c);
+  let C = schemaColors(c);
+  if (o.mute) C = muteColors(C);
+  const g = { g: o.g, sub: o.sub };
+  let body;
+  let screen;
+  let rBody;
+  let rScreen;
+  if (type === 'tablette') {
+    // Paysage : la plus grande boîte de rapport 1,43 dans la zone.
+    let w = box.w;
+    let h = w / 1.43;
+    if (h > box.h) {
+      h = box.h;
+      w = h * 1.43;
+    }
+    body = { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
+    const e = Math.min(w, h) * D.bord;
+    rBody = Math.min(w, h) * D.tablette;
+    screen = { x: body.x + e, y: body.y + e, w: w - 2 * e, h: h - 2 * e };
+    rScreen = Math.max(0.02, rBody - e);
+  } else if (type === 'portable') {
+    // Écran à fine base : l'écran sur 92 % de la zone, la base sur toute la largeur, sans clavier ni logo.
+    const baseH = Math.max(0.07, box.h * 0.035);
+    let lw = box.w * 0.84;
+    let lh = lw / 1.56;
+    if (lh > box.h - baseH) {
+      lh = box.h - baseH;
+      lw = lh * 1.56;
+    }
+    body = { x: box.x + (box.w - lw) / 2, y: box.y + (box.h - baseH - lh) / 2, w: lw, h: lh };
+    const e = lw * D.portable * 0.55;
+    rBody = lw * 0.022;
+    screen = { x: body.x + e, y: body.y + e, w: lw - 2 * e, h: lh - 1.6 * e };
+    rScreen = Math.max(0.01, rBody * 0.4);
+    const bw = Math.min(box.w, lw * 1.16);
+    const by = body.y + lh;
+    if (!darkBg(c)) contactShadow(c, { x: box.x + (box.w - bw) / 2, y: by - 0.02, w: bw, h: baseH * 2.2 }, g);
+    c.round(Object.assign({ x: box.x + (box.w - bw) / 2, y: by - 0.005, w: bw, h: baseH, fill: col.base, radius: baseH * 0.45, name: 'Appareil base' }, g));
+  } else {
+    // Portrait (téléphone) ou boîtier (zoom serré) : coins à 13 % de la largeur (22 % pour le boîtier).
+    const ratio = type === 'boitier' ? 0.86 : 0.49;
+    let w = Math.min(box.w, box.h * ratio);
+    let h = w / ratio;
+    if (type === 'boitier') {
+      w = box.w;
+      h = box.h;
+    }
+    body = { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
+    const e = w * (type === 'boitier' ? 0.075 : D.bord);
+    rBody = w * (type === 'boitier' ? 0.22 : D.coin);
+    screen = { x: body.x + e, y: body.y + e, w: w - 2 * e, h: h - 2 * e };
+    rScreen = Math.max(0.02, rBody - e);
+  }
+  if (type !== 'portable' && !darkBg(c) && type !== 'boitier') contactShadow(c, body, g);
+  c.round(Object.assign({ x: body.x, y: body.y, w: body.w, h: body.h, fill: col.body, line: col.rim, lineW: clamp(body.w * 0.006 * 72, 0.75, 1.75), radius: rBody, name: 'Appareil' }, g));
+  // L'écran : la capture fournie, sinon le schéma (groupé, nommé « Capture à fournir »).
+  const sBox = o.screen ? o.screen : screen;
+  const im = loadImg(c, o.capture);
+  if (im) {
+    putImage(c, im, fitRect(sBox, im.info, 'cover'), { clip: sBox, radius: rScreen, name: 'Capture', g: o.g, sub: o.sub });
+  } else {
+    missingVisual(c, o.capture, 'interface', o.label || (c.lang === 'en' ? 'screenshot' : 'capture d\'écran'), g, () => {
+      if (sBox.w > sBox.h * 1.05) drawScreenLandscape(c, sBox, C, rScreen, o.variant);
+      else drawScreenPortrait(c, sBox, C, rScreen, { hi: o.hi });
+    });
+  }
+  return { body, screen: sBox };
+}
+
+// ---------------------------------------------------------------------------
+// Silhouette d'objet (repli d'un produit) : un volume arrondi modelé par la lumière, comme un objet
+// photographié en studio : haut éclairé, bas dans l'ombre (dégradé vertical), arête claire en haut
+// (2 % de sa largeur), reflet doux en haut à gauche (PNG contenu dans la forme) ; ombre de contact
+// sur fond clair, halo neutre sur fond sombre. Aucun bouton, aucune caméra, aucun logo, aucun détail
+// qui imite un produit réel. o.forme : bloc (défaut), bande (profil), disque, carre ; o.fill : un HEX
+// de coloris ; o.ton : écart de gris (paliers de coloris) ; o.rot : rotation (degrés) ;
+// o.ombre, o.halo, o.reflet : false pour les retirer.
+// ---------------------------------------------------------------------------
+function drawSilhouette(c, box, o) {
+  o = o || {};
+  const dark = darkBg(c);
+  const S = VS.silhouette;
+  const g = { g: o.g, sub: o.sub };
+  let b = Object.assign({}, box);
+  if (!o.exact) {
+    // Proportions d'un objet : on garde la boîte, sauf un bloc trop allongé.
+    if (o.forme === 'disque' || o.forme === 'carre') {
+      const s = Math.min(b.w, b.h);
+      b = { x: b.x + (b.w - s) / 2, y: b.y + (b.h - s) / 2, w: s, h: s };
+    } else if (o.forme !== 'bande' && b.w > b.h * 1.5) {
+      const w = b.h * 1.5;
+      b = { x: b.x + (b.w - w) / 2, y: b.y, w, h: b.h };
+    } else if (o.forme !== 'bande' && b.w < b.h * 0.72) {
+      // Un bloc trop élancé se lirait comme un téléphone : on le ramène à un volume trapu.
+      const h = b.w / 0.72;
+      b = { x: b.x, y: b.y + (b.h - h) / 2, w: b.w, h };
+    }
+  }
+  const tinted = !!o.fill;
+  const base = o.fill || mix(c.P.bg, c.P.fg, (dark ? S.sombre : S.clair) + (o.ton || 0));
+  const rad = o.forme === 'disque' ? Math.min(b.w, b.h) / 2 : o.forme === 'bande' ? b.h / 2 : Math.min(b.w, b.h) * (o.forme === 'carre' ? 0.2 : o.exact ? 0.16 : 0.3);
+  if (o.ombre !== false && !dark && o.forme !== 'bande' && !o.rot) contactShadow(c, b, g);
+  if (o.halo !== false && dark && !o.rot) softHalo(c, b, Object.assign({ etendue: 0.35 }, g));
+  const L = tinted ? S.teinte : dark ? S.lumiereSombre : S.lumiereClair;
+  const top = mix(base, 'FFFFFF', L.haut);
+  const bottom = mix(base, '000000', L.bas);
+  const edge = mix(base, 'FFFFFF', L.arete);
+  const e = Math.max(0.018, b.w * S.arete);
+  const kind = o.forme === 'disque' ? 'ellipse' : 'round';
+  c.add(Object.assign({ k: kind, x: b.x, y: b.y, w: b.w, h: b.h, fill: edge, radius: rad, rot: o.rot, name: 'Silhouette arête' }, g));
+  c.add(Object.assign({ k: kind, x: b.x, y: b.y + e, w: b.w, h: b.h - e, fill: base, radius: Math.max(0.01, rad - e * 0.3), grad2: { from: top, to: bottom, ang: 90 }, rot: o.rot, name: 'Silhouette' }, g));
+  if (o.reflet !== false && L.reflet > 0) {
+    // Le reflet ne déborde jamais de la forme : son alpha est nul hors du rectangle arrondi.
+    const inside = kind === 'ellipse'
+      ? (x, y) => {
+        const dx = (x - b.w / 2) / (b.w / 2);
+        const dy = (y - b.h / 2) / (b.h / 2);
+        return 1 - smooth01((Math.sqrt(dx * dx + dy * dy) - 0.96) / 0.04);
+      }
+      : (x, y) => 1 - smooth01((sdRound(x, y, { x: 0, y: 0, w: b.w, h: b.h }, rad) + 0.025) / 0.025);
+    const A = L.reflet;
+    genImage(c, b, 'FFFFFF', (x, y) => {
+      const dx = (x - b.w * 0.3) / (b.w * 0.6);
+      const dy = (y - b.h * 0.2) / (b.h * 0.45);
+      return A * Math.exp(-2.2 * (dx * dx + dy * dy)) * inside(x, y);
+    }, 'Silhouette reflet', Object.assign({ edge: false, key: 'reflet' + kind + A + '|' + round2(rad), ppi: 40, rot: o.rot }, g));
+  }
+  return b;
+}
+
+// Tuile d'icône (repli d'une icône, fiche A2) : carré arrondi à 20 % du côté, dégradé vertical de
+// l'accent (haut éclairci de 20 %), anneau blanc au centre (50 % du côté, trait de 8 %).
+function drawIconTile(c, box, o) {
+  o = o || {};
+  const s = Math.min(box.w, box.h);
+  const x = box.x + (box.w - s) / 2;
+  const y = box.y + (box.h - s) / 2;
+  const fill = o.fill || c.P.accent;
+  const g = { g: o.g, sub: o.sub };
+  c.round(Object.assign({ x, y, w: s, h: s, fill, radius: s * 0.2, grad2: { from: mix(fill, 'FFFFFF', 0.2), to: fill, ang: 90 }, name: 'Icône' }, g));
+  const ring = onAccent(fill, c.T.fondSombre);
+  const d = s * 0.5;
+  const sw = s * 0.08 * 72;
+  if (o.glyph === 'carre') c.round(Object.assign({ x: x + (s - d) / 2, y: y + (s - d) / 2, w: d, h: d, line: ring, lineW: sw, radius: d * 0.18, name: 'Icône forme' }, g));
+  else if (o.glyph === 'barres') {
+    [0.3, 0.46, 0.62].forEach((t, k) => c.round(Object.assign({ x: x + s * 0.27, y: y + s * t - s * 0.04, w: s * (k === 1 ? 0.32 : 0.46), h: s * 0.08, fill: ring, radius: s * 0.04, name: 'Icône forme' }, g)));
+  } else if (o.glyph === 'point') c.ellipse(Object.assign({ x: x + s * 0.34, y: y + s * 0.34, w: s * 0.32, h: s * 0.32, fill: ring, name: 'Icône forme' }, g));
+  else if (o.glyph === 'demi') {
+    c.ellipse(Object.assign({ x: x + (s - d) / 2 + sw / 144, y: y + (s - d) / 2 + sw / 144, w: d - sw / 72, h: d - sw / 72, line: ring, lineW: sw, name: 'Icône forme' }, g));
+    c.ellipse(Object.assign({ x: x + s * 0.41, y: y + s * 0.41, w: s * 0.18, h: s * 0.18, fill: ring, name: 'Icône forme' }, g));
+  } else c.ellipse(Object.assign({ x: x + (s - d) / 2 + sw / 144, y: y + (s - d) / 2 + sw / 144, w: d - sw / 72, h: d - sw / 72, line: ring, lineW: sw, name: 'Icône forme' }, g));
+  return { x, y, w: s, h: s };
+}
+// Teintes d'une rangée d'icônes de repli : l'accent, l'accent 2, leur mélange et un gris, chacune avec
+// sa forme, pour qu'elles se lisent comme des icônes différentes (jamais trois fois la même).
+const ICON_GLYPHS = ['anneau', 'carre', 'barres', 'point', 'demi'];
+function iconTints(c) {
+  const neutral = mix(c.P.bg, c.P.fg, darkBg(c) ? 0.5 : 0.42);
+  const a2 = c.T.gradient ? c.P.accent2 : mix(c.P.accent, 'FFFFFF', 0.3);
+  return [c.P.accent, a2, neutral, mix(c.P.accent, a2, 0.5), mix(c.P.accent, neutral, 0.55)];
+}
+// Pictogramme géométrique gris (repli d'une icône dans une tuile de bento) : cercle, carré,
+// triangle ou anneau, au trait ou plein, selon le rang ; aucun signe qui se lise.
+function drawGlyph(c, box, i, o) {
+  o = o || {};
+  const s = Math.min(box.w, box.h);
+  const x = box.x + (box.w - s) / 2;
+  const y = box.y + (box.h - s) / 2;
+  const col = o.color || mix(c.P.surface, c.P.fg, 0.45);
+  const g = { g: o.g, sub: o.sub, name: 'Pictogramme' };
+  const lw = Math.max(1.5, s * 0.09 * 72);
+  switch (i % 5) {
+    case 0: c.ellipse(Object.assign({ x: x + s * 0.12, y: y + s * 0.12, w: s * 0.76, h: s * 0.76, line: col, lineW: lw }, g)); c.ellipse(Object.assign({ x: x + s * 0.38, y: y + s * 0.38, w: s * 0.24, h: s * 0.24, fill: col }, g)); break;
+    case 1: c.round(Object.assign({ x: x + s * 0.14, y: y + s * 0.14, w: s * 0.72, h: s * 0.72, line: col, lineW: lw, radius: s * 0.16 }, g)); break;
+    case 2: c.add(Object.assign({ k: 'path', pts: [[x + s * 0.5, y + s * 0.12], [x + s * 0.9, y + s * 0.84], [x + s * 0.1, y + s * 0.84]], closed: true, stroke: col, strokeW: lw, join: 'round' }, g)); break;
+    case 3: for (let k = 0; k < 3; k++) c.round(Object.assign({ x: x + s * 0.12, y: y + s * (0.2 + k * 0.24), w: s * (k === 1 ? 0.56 : 0.76), h: s * 0.1, fill: col, radius: s * 0.05 }, g)); break;
+    default: c.ellipse(Object.assign({ x: x + s * 0.18, y: y + s * 0.18, w: s * 0.64, h: s * 0.64, fill: col }, g));
+  }
+}
+// Photo absente, rendue douce (variantes) : aplat un peu plus clair que le fond et deux halos
+// neutres très flous, en PNG ; aucune personne dessinée.
+function drawPhotoSoft(c, b, o) {
+  o = o || {};
+  const dark = darkBg(c);
+  const ink = c.P.fg;
+  const base = o.base || mix(c.P.bg, ink, dark ? 0.08 : 0.06);
+  const g = { g: o.g, sub: o.sub };
+  if (o.radius) c.round(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill: base, radius: o.radius, name: 'Schéma photo' }, g));
+  else c.rect(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill: base, name: 'Schéma photo' }, g));
+  const h1 = { x: b.x + b.w * 0.42, y: b.y - b.h * 0.25, w: b.w * 0.75, h: b.h * 1.1 };
+  const h2 = { x: b.x - b.w * 0.2, y: b.y + b.h * 0.35, w: b.w * 0.75, h: b.h * 0.95 };
+  const clipB = { x: b.x, y: b.y, w: b.w, h: b.h };
+  [h1, h2].forEach((h, i) => {
+    const v = inter(h, clipB);
+    if (!v) return;
+    // Le halo est calculé sur sa boîte entière, mais seule la partie dans la photo est posée.
+    const A = i === 0 ? (dark ? 0.13 : 0.5) : (dark ? 0.08 : 0.35);
+    const col = dark ? ink : 'FFFFFF';
+    const fn = alphaEllipse(A, 1.8, h);
+    genImage(c, v, col, (x, y) => fn(x + v.x - h.x, y + v.y - h.y), 'Schéma lumière', Object.assign({ key: 'photo' + i + round2(h.w) + round2(h.h) + round2(v.x - h.x) + round2(v.y - h.y) }, g));
+  });
+}
+// Voile en dégradé (bas d'une photo, sous un texte) : du transparent au noir à « A ».
+function gradientVeil(c, b, A, dir, o) {
+  o = o || {};
+  return genImage(c, b, '000000', (x, y) => {
+    const t = dir === 'haut' ? 1 - y / b.h : dir === 'gauche' ? 1 - x / b.w : dir === 'droite' ? x / b.w : y / b.h;
+    return A * smooth01(t);
+  }, o.name || 'Voile', { key: 'voile' + dir + A, g: o.g, sub: o.sub, ppi: 24 });
+}
+
+// ---------------------------------------------------------------------------
+// Aides de texte des variantes : un texte posé dans une zone de fiche (centré sur la zone, ou par
+// le haut de ses capitales), au corps de la fiche, réduit jusqu'à un plancher.
+// ---------------------------------------------------------------------------
+function tv(c, field) {
+  const v = c.t[field];
+  return v === undefined || v === null ? '' : String(v).trim() === '' ? '' : v;
+}
+function zt(c, z, text, o) {
+  o = o || {};
+  const font = o.font || 'titre';
+  const wt = o.wt || 'semi';
+  const paras = o.paras || c.para(text, { wt, font, color: o.color, g: o.g, sub: o.sub, point: o.point, grad: o.grad, subLines: o.subLines });
+  const size = o.size || 24;
+  const min = o.min !== undefined ? o.min : Math.max(9, Math.round(size * 0.72));
+  // Sur une ligne imposée, on garde 6 % de marge : l'estimation des chasses reste une estimation.
+  const stages = o.stages || (o.noWrap ? [{ w: z.w * 0.94, size, min, maxLines: 1 }] : undefined);
+  const base = {
+    x: z.x, w: z.w, paras, size, min, maxTotal: o.maxTotal || 2, maxLines: o.maxLines, stages, wt, align: o.align || 'center', font,
+    color: o.color || c.P.fg, lh: o.lh || K.titre, balance: o.balance !== false && !o.noWrap, noWrap: o.noWrap, name: o.name || 'Texte', g: o.g, sub: o.sub
+  };
+  if (o.anchor === 'top') return topBox(c, Object.assign(base, { capTop: z.y, room: o.room }));
+  return centerBox(c, Object.assign(base, { cy: z.y + z.h / 2, room: o.room || Math.max(z.h * 1.8, 0.7) }));
+}
+// Une liste (un paragraphe par ligne) dans une zone, au pas de k caps.
+function zlist(c, z, lines, o) {
+  o = o || {};
+  const font = o.font || 'texte';
+  const paras = [];
+  const actif = o.actif === undefined ? Number(c.t.actif) || 0 : o.actif;
+  lines.forEach((l, i) => {
+    let color = o.color || c.P.fg;
+    if (actif) color = i + 1 === actif ? (o.activeColor || c.P.fg) : (o.idleColor || c.P.fg2);
+    if (o.colors && o.colors[i]) color = o.colors[i];
+    c.para(l, { wt: o.wt || 'semi', font, color, g: o.g || 'lignes', sub: i, gapK: (o.k || K.courte) - (o.lh || K.titre) }).forEach((p) => paras.push(p));
+  });
+  const size = o.size || 24;
+  const stages = o.stages || [{ size, min: o.min || Math.max(12, Math.round(size * 0.75)), maxLines: o.maxLines || 2 }];
+  const base = { x: z.x, w: z.w, paras, stages, wt: o.wt || 'semi', align: o.align || 'left', font, lh: o.lh || K.titre, name: o.name || 'Liste' };
+  if (o.anchor === 'top') return topBox(c, Object.assign(base, { capTop: z.y }));
+  return centerBox(c, Object.assign(base, { cy: z.y + z.h / 2, room: o.room || Math.max(z.h * 2, 1.2) }));
+}
+function gradOK(c) {
+  return c.T.gradient && c.P.accent === c.T.accent && contrast(c.P.bg, c.T.accent) >= 2.6 && contrast(c.P.bg, c.T.accent2) >= 2.6 && !['keynote', 'canva'].includes(normKey((c.deck.meta || {}).format));
+}
+// Resserre une zone de texte sur sa ligne la plus longue (le dégradé la parcourt alors en entier).
+function hugText(it) {
+  const geo = textGeom(it);
+  let wmax = 0;
+  it.paras.forEach((p) => {
+    const ps = paraSize(it, p, it.fitted);
+    wmax = Math.max(wmax, wrapInfo(p.runs.map((r) => r.t).join(''), ps, heavy(paraWeight(it, p)), it.w, paraTrack(it, p, ps), roleOf(it, p)).widest);
+  });
+  const w = Math.min(it.w, wmax * 1.04 + 0.12);
+  if (it.align === 'center') it.x += (it.w - w) / 2;
+  else if (it.align === 'right') it.x += it.w - w;
+  it.w = w;
+  return geo;
+}
+function imagesOf(c) {
+  return arr(c.slide.images);
+}
+function photoSpec(c) {
+  return c.slide.image_fond || c.slide.image;
+}
+// Photo à fond perdu (cover) avec voile, ou repli doux. Retourne true si une vraie photo est posée.
+function fullPhoto(c, spec, o) {
+  o = o || {};
+  const box = o.box || { x: 0, y: 0, w: W, h: H };
+  const im = loadImg(c, spec);
+  if (im) {
+    putImage(c, im, fitRect(box, im.info, 'cover'), { clip: box, name: o.name || 'Photo', g: o.g, gray: o.gray, radius: o.radius });
+    const v = o.voile !== undefined ? o.voile : (c.slide.voile !== undefined ? Number(c.slide.voile) || 0 : 0);
+    if (v > 0) c.rect({ x: box.x, y: box.y, w: box.w, h: box.h, fill: '000000', transparency: 100 - clamp(v, 0, 100), name: 'Voile', g: o.g });
+    return true;
+  }
+  missingVisual(c, spec, 'photo', o.label || (c.lang === 'en' ? 'calm photo' : 'photo calme'), { g: o.g }, () => drawPhotoSoft(c, box, { g: o.g, radius: o.radius }));
+  return false;
+}
+// Repli d'objet ou visuel fourni, avec le traitement de profondeur de la fiche. Quand image.attendu
+// décrit autre chose qu'un objet (une carte, un écran, une photo), le repli suit ce qu'on attend :
+// une carte schématique, une interface ou une photo douce, contenues dans la zone, jamais une
+// silhouette de produit à la place d'une carte.
+function productVisual(c, box, spec, o) {
+  o = o || {};
+  const sp = c.imageSpec(spec);
+  const att = sp ? str(sp.attendu || sp.libelle || sp.alt) : '';
+  let k = sp && att && !loadImg(c, spec) ? placeholderKind(c, sp, att, {}) : 'objet';
+  if (k === 'interface' && KIND_RX.objet.test(normText(att))) k = 'objet';
+  const other = ['carte', 'interface', 'photo'].includes(k);
+  return visual(c, box, spec, Object.assign({
+    kind: other ? k : 'objet', ombre: true, halo: darkBg(c) && o.halo !== false, label: o.label || (c.lang === 'en' ? 'cut-out product' : 'produit détouré'),
+    repli: other ? (b) => flatRepli(c, b, k, att, o) : (b) => drawSilhouette(c, o.silBox ? o.silBox(b) : b, { forme: o.forme, g: o.g, sub: o.sub, fill: o.fill, ton: o.ton, exact: o.exact, ombre: o.ombreSil, halo: o.haloSil })
+  }, o));
+}
+function flatRepli(c, b, k, attendu, o) {
+  const C = schemaColors(c);
+  const rnd = rng(41 * (c.index + 1) + Math.round(b.x * 10));
+  const r = 1.3;
+  let w = Math.min(b.w, W - 2 * 0.3);
+  let h = w / r;
+  if (h > b.h) {
+    h = b.h;
+    w = h * r;
+  }
+  const x = clamp(b.x + (b.w - w) / 2, 0.3, W - 0.3 - w);
+  const bx = { x, y: b.y + (b.h - h) / 2, w, h };
+  if (k === 'carte') drawMap(c, bx, C, rnd);
+  else if (k === 'photo') drawPhotoSoft(c, bx, { g: o.g, sub: o.sub, radius: STYLE.schema.rayon });
+  else drawWindow(c, bx, Object.assign({}, C, { shadow: false }), rnd, interfaceVariant(attendu, c.index));
+}
+// Écran ou capture dans une zone : interface schématique claire et entière quand elle manque.
+function screenVisual(c, box, spec, o) {
+  o = o || {};
+  return visual(c, box, spec, Object.assign({ kind: 'interface', mode: 'contain', radius: STYLE.schema.rayon, label: c.lang === 'en' ? 'screenshot' : 'capture d\'écran' }, o));
+}
+function srcLine(c, z, o) {
+  if (!c.sourceOnSlide || c.sourceDone) return;
+  o = o || {};
+  c.text({ x: z.x, y: z.y, w: z.w, h: Math.max(z.h, 0.3), text: c.sourceDisplay, size: STYLE.source[0], min: STYLE.source[1], color: o.color || c.P.fg2, align: o.align || 'center', valign: 'top', font: 'texte', lh: K.titre, name: 'Source', g: o.g });
+  c.sourceDone = true;
+}
+
+const V = {};
+
+// ---------------------------------------------------------------------------
+// Textes : A1, A2, A3, A4, A7, A8, A17, A21
+// ---------------------------------------------------------------------------
+V['A1/aplat'] = (c) => R.A1(c);
+// Le nom en dégradé de section (accent → accent2), accent uni sans accent2 ou pour Keynote et Canva.
+function gradientTitle(c, S, big) {
+  const grad = gradOK(c);
+  c.accentUsed = true;
+  const paras = c.para(c.f('titre', 'titre'), { wt: 'semi', font: 'titre', g: 'titre', point: !big, color: c.P.accentTxt, grad, subLines: !big });
+  const stages = big ? bigStages(STYLE.A1.corps[0], paras.length > 1) : [{ size: S.corps[0], min: S.corps[1], maxLines: paras.length > 1 ? 1 : 2, maxTotal: 2 }];
+  const t = centerBox(c, { x: S.x, w: S.w, cy: S.cy, paras, stages, wt: 'semi', align: 'center', font: 'titre', color: c.P.accentTxt, lh: K.titre, balance: true, name: 'Titre' });
+  if (grad) {
+    hugText(t.it);
+    t.it.grad = true;
+  }
+  c.kicker(t.g, { x: S.x, w: S.w, align: 'center' });
+}
+V['A1/degrade'] = (c) => gradientTitle(c, STYLE.A1, true);
+V['A1/sur-image'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : VS.voile.photo, g: 'visuel' });
+  const color = real ? 'FFFFFF' : c.P.fg;
+  const A = STYLE.A1;
+  const paras = c.para(c.f('titre', 'titre'), { wt: 'semi', font: 'titre', g: 'titre', point: true, color });
+  const t = centerBox(c, { x: A.x, w: A.w, cy: A.cy, paras, stages: bigStages(A.corps[0], paras.length > 1), wt: 'semi', align: 'center', font: 'titre', color, lh: K.titre, balance: true, name: 'Titre' });
+  c.kicker(t.g, { x: A.x, w: A.w, align: 'center', color: real ? 'E8E8E8' : undefined });
+};
+// Couronne : des mots (textes.couronne) ou, à défaut, des pastilles et des barres grises, posés sur
+// une ellipse qui laisse libre un ovale central de 60 % L × 36 % H.
+V['A1/entoure'] = (c) => {
+  // Le nom d'abord (au centre, plus petit), puis la couronne sur deux anneaux : l'intérieur net,
+  // l'extérieur sur trois plans de profondeur (corps et gris variés) qui sortent du cadre.
+  const z = P(20, 42, 60, 16);
+  const t = zt(c, z, c.f('titre', 'titre'), { size: 72, min: 48, maxTotal: 1, point: true, g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center' });
+  const words = arr(c.t.couronne).map(str).filter((s) => s.trim());
+  const rnd = rng(97 + c.index * 13);
+  const cx = W / 2;
+  const cy = H / 2;
+  const tb = grow(hugBox(t.it), 0.35, 0.3);
+  const placed = [tb];
+  const N = words.length ? Math.max(words.length, 24) : 20;
+  for (let i = 0; i < N; i++) {
+    const outer = i % 2 === 1;
+    const a = -Math.PI / 2 + i * 2 * Math.PI / N + (rnd() - 0.5) * 0.25;
+    const rx = (outer ? 0.47 : 0.3) * W + (rnd() - 0.5) * 0.4;
+    const ry = (outer ? 0.46 : 0.31) * H + (rnd() - 0.5) * 0.25;
+    const x = cx + Math.cos(a) * rx;
+    const y = cy + Math.sin(a) * ry;
+    const depth = outer ? [0.72, 0.55, 0.38][Math.floor(rnd() * 3)] : 0.4;
+    const color = mix(c.P.fg, c.P.bg, depth);
+    if (words.length) {
+      const wd = words[i % words.length];
+      const pt = outer ? [13, 18, 24][Math.floor(rnd() * 3)] : 17;
+      const S = scalePt(pt, 'texte');
+      const tw = Math.min(2.8, textWidth(typo(stripValider(wd), c.lang), S, true, 0, 'texte') + 0.2);
+      const box = { x: x - tw / 2, y: y - capIn('texte', S) * 1.3, w: tw, h: capIn('texte', S) * 2.6 };
+      if (placed.some((b) => inter(grow(b, 0.06, 0.02), box))) continue;
+      placed.push(box);
+      c.text({ x: box.x, y: box.y, w: box.w, h: box.h, text: wd, size: pt, min: pt, maxLines: 1, noWrap: true, wt: 'regular', color, align: 'center', font: 'texte', lh: K.titre, name: 'Couronne', g: 'lignes', sub: i });
+    } else {
+      const box = { x: x - 0.5, y: y - 0.1, w: 1, h: 0.2 };
+      if (placed.some((b) => inter(b, box))) continue;
+      placed.push(box);
+      if (i % 3 === 0) c.ellipse({ x: x - 0.09, y: y - 0.09, w: 0.18, h: 0.18, fill: color, name: 'Couronne', g: 'lignes', sub: i });
+      else {
+        const pw = 0.45 + rnd() * 0.7;
+        pill(c, x - pw / 2, y - 0.055, pw, 0.11, color, 'Couronne');
+        c.items[c.items.length - 1].g = 'lignes';
+        c.items[c.items.length - 1].sub = i;
+      }
+    }
+  }
+  c.groups = [SUR, G('titre', KW.titre), G('lignes', /\b(?:couronnes?|elements?|mots?|pastilles?)\b/, { multi: false })];
+};
+// Rectangle réellement occupé par un texte centré (sa ligne la plus longue, ses lignes).
+function hugBox(it) {
+  const geo = textGeom(it);
+  let wmax = 0;
+  it.paras.forEach((p) => {
+    const ps = paraSize(it, p, it.fitted);
+    wmax = Math.max(wmax, wrapInfo(p.runs.map((r) => r.t).join(''), ps, heavy(paraWeight(it, p)), it.w, paraTrack(it, p, ps), roleOf(it, p)).widest);
+  });
+  const w = Math.min(it.w, wmax);
+  const x = it.align === 'center' ? it.x + (it.w - w) / 2 : it.align === 'right' ? it.x + it.w - w : it.x;
+  return { x, y: geo.capTop - geo.capH * 0.3, w, h: geo.base - geo.capTop + geo.capH * 0.6 };
+}
+V['A1/matiere'] = (c) => {
+  if (!loadImg(c, c.slide.image)) {
+    if (c.slide.image) registerMissing(c, c.slide.image, 'objet', c.lang === 'en' ? 'the word rendered in material' : 'le mot rendu en matière');
+    // Sans rendu fourni : la matière la plus simple de la fiche, le trait lumineux en contour (lettres
+    // au trait d'accent, lueur douce). Un nom qui reste à fournir garde l'aplat d'origine, estompé.
+    R.A1(c);
+    if (!hasFournir(c.t.titre)) {
+      const it = c.items.filter((x) => x.k === 'text' && x.name === 'Titre').pop();
+      if (it) {
+        it.outline = { color: c.P.accent, pt: 2, glow: 6, glowA: 0.45 };
+        c.accentUsed = true;
+      }
+    }
+    return;
+  }
+  visual(c, P(10, 30, 80, 40), c.slide.image, { kind: 'objet', g: 'titre' });
+};
+
+// A2 : l'icône (image fournie, ou tuile de repli) et le nom.
+function iconVisual(c, box, spec, o) {
+  o = o || {};
+  return visual(c, box, spec, Object.assign({ kind: 'icone', label: c.lang === 'en' ? 'icon' : 'icône', repli: (b) => drawIconTile(c, b, { g: o.g, sub: o.sub, fill: o.fill, glyph: o.glyph }) }, o));
+}
+V['A2/icone-nom'] = (c) => {
+  iconVisual(c, P(39, 30.5, 22, 39), c.slide.image, { g: 'visuel' });
+  const z = P(10, 76, 80, 8);
+  const t = zt(c, z, c.f('titre', 'nom'), { size: 32, min: 24, maxTotal: 1, g: 'titre', name: 'Nom' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center' });
+};
+V['A2/icone-cote'] = (c) => {
+  // L'icône et le nom forment un groupe centré dans le cadre (fiche : sur la même ligne).
+  const iz = P(0, 30.5, 22, 39);
+  const s = Math.min(iz.w, iz.h);
+  const ps = scalePt(32, 'titre');
+  const nw = Math.min(4.8, textWidth(shownText(c, c.f('titre', 'nom')), ps, true, trackFor('titre', ps), 'titre') + 0.1);
+  const gap = 0.6;
+  const x0 = Math.max(M, (W - (s + gap + nw)) / 2);
+  iconVisual(c, { x: x0, y: iz.y + (iz.h - s) / 2, w: s, h: s }, c.slide.image, { g: 'visuel' });
+  const z = { x: x0 + s + gap, y: P(0, 45, 0, 10).y, w: Math.min(4.8, W - M - (x0 + s + gap)), h: P(0, 45, 0, 10).h };
+  const t = zt(c, z, c.f('titre', 'nom'), { size: 32, min: 24, maxTotal: 2, align: 'left', g: 'titre', name: 'Nom' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'left' });
+};
+V['A2/logo-nom'] = (c) => {
+  const spec = c.slide.image || (c.T.logo ? { chemin: c.T.logo } : null);
+  const im = loadImg(c, spec);
+  if (!im) {
+    R.A1(c);
+    return;
+  }
+  const size = scalePt(80, 'titre');
+  const name = shownText(c, c.f('titre', 'nom'));
+  const tw = Math.min(6.4, textWidth(name, size, true, trackFor('titre', size), 'titre'));
+  const capH = capIn('titre', size);
+  const lh = capH * 1.1;
+  const lw = lh * im.info.w / im.info.h;
+  const gap = capH * 0.35;
+  const total = lw + gap + tw;
+  const x0 = (W - total) / 2;
+  putImage(c, im, { x: x0, y: H / 2 - lh / 2, w: lw, h: lh }, { name: 'Logo', g: 'titre' });
+  c.line({ text: c.f('titre', 'nom'), x: x0 + lw + gap, w: tw + 0.6, base: H / 2 + capH / 2, size, wt: 'semi', align: 'left', font: 'titre', name: 'Nom', g: 'titre' });
+};
+V['A2/rangee'] = (c) => {
+  const imgs = imagesOf(c);
+  [14.8, 38.85, 62.9].forEach((x, i) => {
+    iconVisual(c, P(x, 30, 22.3, 40), imgs[i] || (i === 0 ? c.slide.image : null), { g: 'visuel', sub: i, fill: iconTints(c)[i], glyph: ICON_GLYPHS[i] });
+  });
+  c.groups = [G('visuel', KW.visuel, { multi: true })];
+};
+V['A2/objet-interface'] = (c) => {
+  // Fiche : le bouton seul, sur 31 à 33 % L ; il s'élargit pour un libellé plus long.
+  const z = P(33, 43, 34, 13);
+  const dark = darkBg(c);
+  const fill = dark ? (contrast(c.T.fondClair, c.P.bg) >= 4.5 ? c.T.fondClair : 'FFFFFF') : mix(c.P.bg, c.P.fg, 0.88);
+  const color = readableOn(fill, c.T.fondSombre, 'FFFFFF');
+  const size = scalePt(28, 'texte');
+  const label = shownText(c, c.f('titre', 'action'));
+  const w = clamp(Math.max(z.w, textWidth(label, size, true, trackFor('texte', size), 'texte') + z.h * 1.4), z.h * 2.2, W - 1.2);
+  c.round({ x: (W - w) / 2, y: z.y, w, h: z.h, fill, radius: z.h / 2, name: 'Bouton', g: 'visuel' });
+  zt(c, { x: (W - w) / 2, y: z.y, w, h: z.h }, c.f('titre', 'action'), { size: 28, min: 20, maxTotal: 1, font: 'texte', color, g: 'visuel', name: 'Bouton libellé' });
+};
+V['A2/icone-seule'] = (c) => {
+  iconVisual(c, P(39, 30, 22, 40), c.slide.image, { g: 'visuel' });
+};
+
+// A3 : sommaire. Corps selon le nombre de lignes (STYLE.A3), alignement de la variante.
+function summary(c, o) {
+  const S = STYLE.A3;
+  let lines = arr(c.t.lignes);
+  if (!lines.length) lines.push(c.f('lignes', 'lignes'));
+  if (o.slice) lines = lines.slice(0, o.slice);
+  const actif = Number(c.t.actif) || 0;
+  c.accentUsed = !!actif || !!o.colors;
+  const paras = [];
+  lines.forEach((l, i) => {
+    let color = c.P.fg;
+    if (o.colors && o.colors[i]) color = o.colors[i];
+    else if (actif) color = i + 1 === actif ? c.P.accentTxt : (o.idle || c.P.fg2);
+    if (o.pale !== undefined && i === o.pale) color = mix(c.P.fg, c.P.bg, 0.75);
+    c.para(l, { color, wt: 'semi', font: 'titre', g: 'lignes', sub: i }).forEach((p) => paras.push(p));
+  });
+  const n = o.count || lines.length;
+  const size = o.size || S.corps[clamp(n, 1, 8)];
+  const t = centerBox(c, { x: o.x, w: o.w, cy: o.cy || S.cy, paras, size, min: Math.min(size, S.plancher), maxLines: 1, wt: 'semi', align: o.align, font: 'titre', lh: K.sommaire, name: 'Sommaire' });
+  c.kicker(t.g, { x: o.x, w: o.w, align: o.align });
+  return t;
+}
+V['A3/centre'] = (c) => R.A3(c);
+V['A3/droite'] = (c) => summary(c, { x: 2.0, w: 5.6, align: 'right' });
+V['A3/ligne'] = (c) => {
+  const lines = arr(c.t.lignes);
+  if (!lines.length) lines.push(c.f('lignes', 'lignes'));
+  const actif = Number(c.t.actif) || 0;
+  c.accentUsed = !!actif;
+  const runs = [];
+  lines.forEach((l, i) => {
+    if (i) runs.push({ t: '      ' });
+    const ps = c.para(l, { wt: 'semi', font: 'titre' });
+    const color = actif ? (i + 1 === actif ? c.P.accentTxt : c.P.fg2) : c.P.fg;
+    ps.forEach((p) => p.runs.forEach((r) => runs.push(Object.assign({}, r, { color: r.marker ? undefined : color }))));
+  });
+  const para = { runs: runs.length ? runs : [{ t: '' }], rel: 1, g: 'lignes', wt: 'semi', font: 'titre' };
+  const z = P(6, 43, 88, 14);
+  const t = centerBox(c, { x: z.x, w: z.w, cy: z.y + z.h / 2, paras: [para], size: 40, min: 22, maxLines: 1, wt: 'semi', align: 'center', font: 'titre', lh: K.titre, name: 'Sommaire' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center' });
+};
+V['A3/numerote'] = (c) => {
+  const lines = arr(c.t.lignes);
+  if (!lines.length) lines.push(c.f('lignes', 'lignes'));
+  const z = P(32, 29, 48, 42);
+  const size = Math.min(48, STYLE.A3.corps[clamp(lines.length, 1, 8)]);
+  const t = zlist(c, z, lines, { size, min: 24, maxLines: 1, font: 'titre', k: K.sommaire + 0.25, lh: K.sommaire, color: c.P.fg, actif: Number(c.t.actif) || 0, activeColor: c.P.fg, idleColor: c.P.fg2 });
+  const geo = t.g;
+  const numeros = c.t.numeros !== false;
+  // Numéros et lignes forment un bloc centré dans le cadre (fiche : pile numérotée au centre).
+  hugText(t.it);
+  const cap0 = geo.lines.length ? geo.lines[0].cap : 0.3;
+  const lead = cap0 * 1.5 + cap0 * 0.7;
+  t.it.x = Math.max(M + lead, (W - (lead + t.it.w)) / 2 + lead);
+  geo.lines.forEach((ln, i) => {
+    if (i >= lines.length) return;
+    const d = ln.cap * 1.5;
+    const x = t.it.x - d - ln.cap * 0.7;
+    if (numeros) {
+      c.ellipse({ x, y: ln.c - d / 2, w: d, h: d, line: c.P.accent, lineW: Math.max(1.5, d * 72 * 0.06), name: 'Numéro', g: 'lignes', sub: i });
+      c.text({ x, y: ln.c - d / 2, w: d, h: d, text: String(i + 1), size: Math.round(ln.ps * 0.5), min: 10, maxLines: 1, wt: 'semi', color: c.P.accentTxt, align: 'center', font: 'texte', lh: K.titre, name: 'Numéro chiffre', g: 'lignes', sub: i, fixed: Math.round(ln.ps * 0.5) });
+    } else c.ellipse({ x: x + d * 0.3, y: ln.c - d * 0.2, w: d * 0.4, h: d * 0.4, fill: c.P.accent, name: 'Numéro', g: 'lignes', sub: i });
+  });
+  c.accentUsed = true;
+  c.kicker(geo, { x: t.it.x, w: z.w, align: 'left' });
+};
+V['A3/suffixe'] = (c) => {
+  const t = summary(c, { x: 1.0, w: 5.6, align: 'right' });
+  const suf = tv(c, 'suffixe');
+  if (!suf) return;
+  const it = t.it;
+  t.g.lines.forEach((ln, i) => {
+    c.line({ text: suf, x: 6.8, w: 2.6, base: ln.c + ln.cap / 2, size: ln.ps, wt: 'regular', color: c.P.fg, align: 'left', font: 'titre', name: 'Suffixe', g: 'note', sub: i });
+  });
+  it.x = 1.0;
+  c.groups = [SUR, G('lignes', KW.lignes, { multi: true }), G('note', /\b(?:suffixes?|mots? ajoutes?|second etat)\b/)];
+};
+V['A3/ligne-active'] = (c) => {
+  const lines = arr(c.t.lignes);
+  const actif = clamp(Number(c.t.actif) || 1, 1, Math.max(1, lines.length));
+  const shown = lines.slice(0, Math.min(lines.length, actif + 1));
+  c.t = Object.assign({}, c.t, { lignes: shown, actif: 0 });
+  summary(c, { x: 1.0, w: 8.0, align: 'center', count: lines.length, pale: actif < lines.length ? actif : undefined });
+};
+V['A3/couleurs'] = (c) => {
+  const cols = arr(c.t.couleurs).map((h) => hex(h, null, 'couleurs', c.warnings)).filter(Boolean);
+  summary(c, { x: 2.0, w: 5.6, align: 'right', colors: cols.length ? cols.map((h) => textAccent(c.P.bg, h, c.P.fg)) : null });
+};
+
+V['A4/aplat'] = (c) => R.A4(c);
+V['A4/degrade'] = (c) => gradientTitle(c, STYLE.A4, false);
+V['A4/mot-accent'] = (c) => R.A4(c);
+V['A4/definition'] = (c) => {
+  const mot = tv(c, 'mot') || tv(c, 'surtitre');
+  const nature = tv(c, 'nature');
+  c.accentUsed = true;
+  const z1 = P(14, 30, 72, 7);
+  const paras = [];
+  if (mot) c.para(String(mot).toUpperCase(), { wt: 'semi', font: 'texte', color: c.P.accentTxt }).forEach((p) => paras.push(p));
+  if (nature) {
+    const np = c.para(nature, { wt: 'regular', font: 'texte', color: c.P.fg2 });
+    if (paras.length) {
+      paras[0].runs.push({ t: '   ' });
+      np[0].runs.forEach((r) => paras[0].runs.push(Object.assign({}, r, { color: r.marker ? undefined : c.P.fg2 })));
+    } else np.forEach((p) => paras.push(p));
+  }
+  const z2 = P(14, 39, 72, 24);
+  const t = zt(c, z2, c.f('titre', 'définition'), { size: 40, min: 30, maxTotal: 3, align: 'left', anchor: 'top', g: 'titre', name: 'Définition', point: true });
+  if (paras.length) c.line({ paras, x: z1.x, w: z1.w, base: t.g.capTop - 0.36, size: scalePt(24, 'texte'), wt: 'semi', color: c.P.accentTxt, align: 'left', font: 'texte', name: 'Mot', g: 'titre' });
+};
+V['A4/sur-image'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : 40, g: 'visuel' });
+  const S = STYLE.A4;
+  const color = real ? 'FFFFFF' : c.P.fg;
+  const paras = c.para(c.f('titre', 'phrase'), { wt: 'semi', font: 'titre', g: 'titre', subLines: true, point: true, color });
+  const t = centerBox(c, { x: S.x, w: S.w, cy: S.cy, paras, stages: [{ size: S.corps[0], min: S.corps[1], maxLines: paras.length > 1 ? 1 : 2, maxTotal: 2 }], wt: 'semi', align: 'center', font: 'titre', color, lh: K.titre, balance: true, name: 'Phrase' });
+  c.kicker(t.g, { x: S.x, w: S.w, align: 'center', color: real ? 'E8E8E8' : undefined });
+  c.groups = [G('visuel', KW.visuel), SUR, G('titre', KW.titre)];
+};
+V['A4/sourdine'] = (c) => {
+  const S = STYLE.A4;
+  const paras = c.para(c.f('titre', 'phrase'), { wt: 'semi', font: 'titre', g: 'titre', subLines: true, color: c.P.fg2 });
+  const t = centerBox(c, { x: S.x, w: S.w, cy: S.cy, paras, stages: [{ size: S.corps[0], min: S.corps[1], maxLines: paras.length > 1 ? 1 : 2, maxTotal: 2 }], wt: 'semi', align: 'center', font: 'titre', color: c.P.fg2, lh: K.titre, balance: true, name: 'Phrase' });
+  c.kicker(t.g, { x: S.x, w: S.w, align: 'center' });
+};
+V['A4/enchainee'] = (c) => R.A4(c);
+
+// A7 : listes.
+V['A7/centree'] = (c) => R.A7(c);
+V['A7/empilement'] = (c) => {
+  const lines = arr(c.t.lignes);
+  const k = Number(c.t.actif) || lines.length;
+  c.t = Object.assign({}, c.t, { lignes: lines.slice(0, Math.max(1, k)), actif: 0 });
+  // La pile garde le même pas d'un état à l'autre (1,95 cap), même à deux lignes : sinon elle saute.
+  c._pitchK = K.liste;
+  R.A7(c);
+};
+function sideList(c, zv, zl, size, drawVis) {
+  drawVis();
+  let lines = arr(c.t.lignes).slice(0, 6);
+  if (!lines.length) lines = [c.f('lignes', 'lignes')];
+  const t = zlist(c, zl, lines, { size, k: K.courte, color: c.P.fg });
+  const geo = listHeading(c, t.g, { x: zl.x, w: zl.w, align: 'left', size: Math.max(16, size * 0.7) });
+  c.kicker(geo, { x: zl.x, w: zl.w, align: 'left' });
+  c.groups = [G('visuel', KW.visuel), SUR, G('titre', KW.titre), G('lignes', KW.lignes, { multi: true })];
+}
+V['A7/a-cote-icone'] = (c) => sideList(c, null, P(45, 36, 48, 28), 24, () => iconVisual(c, P(11.5, 31, 21, 38), c.slide.image, { g: 'visuel' }));
+V['A7/a-cote-objet'] = (c) => sideList(c, null, P(58, 34, 36, 32), 24, () => {
+  const z = P(4, 14, 48, 72);
+  const im = loadImg(c, c.slide.image);
+  const kind = placeholderKind(c, c.imageSpec(c.slide.image), str((c.imageSpec(c.slide.image) || {}).attendu), {});
+  if (!im && kind !== 'objet') screenVisual(c, { x: 0.5, y: z.y + 0.2, w: z.w - 0.2, h: z.h - 0.4 }, c.slide.image, { g: 'visuel' });
+  else productVisual(c, z, c.slide.image, { g: 'visuel' });
+});
+V['A7/deux-colonnes'] = (c) => {
+  const lines = arr(c.t.lignes);
+  if (!lines.length) lines.push(c.f('lignes', 'lignes'));
+  const half = Math.ceil(lines.length / 2);
+  const cols = [lines.slice(0, half), lines.slice(half)];
+  // Deux colonnes au même corps et au même pas : le plus petit des deux ajustements. La seconde
+  // colonne suit la première (6 % L après sa ligne la plus longue), et l'icône et les colonnes forment
+  // un bloc centré : des libellés courts ne laissent plus un trou au milieu de la slide.
+  const boxes = cols.map((ls, k) => {
+    if (!ls.length) return null;
+    const z = P(k ? 66 : 34, 20, 28, 60);
+    const paras = [];
+    ls.forEach((l, i) => c.para(l, { wt: 'semi', font: 'texte', g: 'lignes', sub: k * half + i, gapK: K.courte - K.titre }).forEach((p) => paras.push(p)));
+    return c.text({ x: z.x, y: z.y, w: z.w, h: z.h, paras, size: 20, min: 12, maxLines: 1, wt: 'semi', align: 'left', valign: 'middle', font: 'texte', lh: K.titre, name: 'Liste ' + (k + 1) });
+  }).filter(Boolean);
+  const fitted = Math.min.apply(null, boxes.map((b) => b.fitted));
+  boxes.forEach((b) => { b.fitted = fitted; b.valign = 'top'; b.y = P(0, 20, 0, 0).y + (P(0, 0, 0, 60).h - textGeom(Object.assign({}, boxes[0], { valign: 'top' })).h) / 2; });
+  const widest = (b) => Math.max.apply(null, b.paras.map((p) => wrapInfo(p.runs.map((r) => r.t).join(''), paraSize(b, p, b.fitted), heavy(paraWeight(b, p)), 99, paraTrack(b, p, paraSize(b, p, b.fitted)), roleOf(b, p)).widest));
+  const iz = P(0, 33, 18, 34);
+  const is = Math.min(iz.w, iz.h);
+  const gapI = W * 0.08;
+  const gapC = W * 0.06;
+  const w1 = widest(boxes[0]);
+  const w2 = boxes[1] ? widest(boxes[1]) : 0;
+  const total = is + gapI + w1 + (boxes[1] ? gapC + w2 : 0);
+  const x0 = Math.max(M, (W - total) / 2);
+  iconVisual(c, { x: x0, y: iz.y + (iz.h - is) / 2, w: is, h: is }, c.slide.image, { g: 'visuel' });
+  boxes[0].x = x0 + is + gapI;
+  boxes[0].w = w1 + 0.3;
+  if (boxes[1]) {
+    boxes[1].x = boxes[0].x + w1 + gapC;
+    boxes[1].w = Math.max(w2 + 0.3, 0.5);
+  }
+  c.groups = [G('visuel', KW.visuel), G('lignes', KW.lignes, { multi: false })];
+};
+V['A7/sur-photo'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : 45, g: 'visuel' });
+  const S = STYLE.A7;
+  const lines = arr(c.t.lignes).length ? arr(c.t.lignes) : [c.f('lignes', 'lignes')];
+  const pitchK = lines.length === 2 ? K.liste2 : K.liste;
+  const fg = real ? 'FFFFFF' : c.P.fg;
+  const paras = listParas(c, lines, { color: fg, activeColor: fg, idleColor: real ? 'C8C8C8' : c.P.fg2, font: 'titre', gapK: pitchK - K.titre });
+  const t = centerBox(c, { x: S.x, w: S.w, cy: S.cy, paras, stages: [{ size: S.lignes[0], min: S.lignes[1], maxLines: 1 }, { size: S.lignes[1], min: 24, maxLines: 2 }], wt: 'semi', align: 'center', font: 'titre', color: fg, lh: K.titre, name: 'Liste' });
+  c.kicker(t.g, { x: S.x, w: S.w, align: 'center', color: real ? 'E8E8E8' : undefined });
+  c.groups = [G('visuel', KW.visuel), SUR, G('lignes', KW.lignes, { multi: true })];
+};
+V['A7/filet'] = (c) => {
+  const z = P(6, 42, 88, 62);
+  screenVisual(c, z, c.slide.image, { g: 'visuel', mode: 'cover', clip: { x: 0, y: 0, w: W, h: H }, radius: STYLE.schema.rayon, alignY: 'top' });
+  const zl = P(50, 15, 40, 21);
+  const lines = arr(c.t.lignes).slice(0, 4);
+  const t = zlist(c, zl, lines.length ? lines : [c.f('lignes', 'lignes')], { size: 18, min: 12, k: K.courte, actif: Number(c.t.actif) || 0, maxLines: 1 });
+  const f = P(48, 15, 0.3, 21);
+  c.rect({ x: zl.x - 0.2, y: t.g.capTop - 0.04, w: 0.015, h: t.g.base - t.g.capTop + 0.08, fill: c.P.fg2, name: 'Filet', g: 'lignes' });
+  c.kicker(t.g, { x: zl.x, w: zl.w, align: 'left' });
+  c.groups = [G('visuel', KW.visuel), SUR, G('lignes', KW.lignes, { multi: true })];
+  void f;
+};
+
+// A8 : pictogrammes au trait (cercle et coche du même trait, en accent), triangle d'alerte,
+// pictogrammes fournis. Une ligne qui n'est qu'un [À FOURNIR] garde sa case vide.
+function checkList(c, o) {
+  const S = STYLE.A8;
+  let lines = arr(c.t.lignes).slice(0, 7);
+  if (!lines.length) lines = [c.f('lignes', 'lignes')];
+  const n = lines.length;
+  const size0 = o.size || S.lignes[0];
+  const fg = o.color || c.P.fg;
+  const lineParas = lines.map((l, i) => c.para(l, { wt: 'semi', font: 'texte', g: 'lignes', sub: i, color: fg }));
+  const cap0 = capIn('texte', scalePt(size0, 'texte'));
+  const avail = S.largeurMax - cap0 * (S.picto + S.ecart);
+  let size = null;
+  lineParas.forEach((ps) => {
+    const s = c.fit({ paras: ps, w: avail, size: size0, min: S.lignes[1], maxLines: 1, wt: 'semi', font: 'texte' });
+    if (s === null) c.warn('Ligne trop longue pour la liste à coches : raccourcissez-la (5 mots au plus).');
+    const v = s === null ? scalePt(S.lignes[1], 'texte') : s;
+    size = size === null ? v : Math.min(size, v);
+  });
+  const cap = capIn('texte', size);
+  const pitch = K.liste * cap;
+  const d = S.picto * cap * 1.08;
+  const gap = S.ecart * cap;
+  const tw = Math.max.apply(null, lineParas.map((ps) => wrapInfo(ps.map((p) => p.runs.map((r) => r.t).join('')).join(' '), size, true, 99, trackFor('texte', size), 'texte').widest));
+  const x0 = Math.max(M, (W - (d + gap + tw)) / 2);
+  const cy0 = S.cy - (n - 1) * pitch / 2;
+  const stroke = Math.max(1.5, d * 0.09 * 72);
+  const pictos = arr(c.t.pictos).length ? arr(c.t.pictos) : imagesOf(c);
+  c.accentUsed = true;
+  lineParas.forEach((ps, i) => {
+    const base = cy0 + i * pitch + cap / 2;
+    const iy = base - d + cap * 0.06;
+    const aFournir = ps.some((p) => p.runs.some((r) => r.marker)) && ps.every((p) => p.runs.every((r) => r.marker || !r.t.trim()));
+    const gi = { g: 'lignes', sub: i };
+    const gc = { g: o.checksApart ? 'coches' : 'lignes', sub: i };
+    const mode = o.mode;
+    if (mode === 'picto' && pictos[i] && loadImg(c, pictos[i])) {
+      visual(c, { x: x0, y: iy, w: d, h: d }, pictos[i], Object.assign({ kind: 'icone' }, gi));
+    } else if (mode === 'alerte') {
+      c.add(Object.assign({ k: 'path', pts: [[x0 + d / 2, iy + d * 0.04], [x0 + d * 0.98, iy + d * 0.92], [x0 + d * 0.02, iy + d * 0.92]], closed: true, stroke: c.P.accent, strokeW: stroke, join: 'round', name: 'Alerte ' + (i + 1) }, gi));
+      c.rect(Object.assign({ x: x0 + d / 2 - d * 0.035, y: iy + d * 0.36, w: d * 0.07, h: d * 0.28, fill: c.P.accent, name: 'Alerte trait ' + (i + 1) }, gi));
+      c.ellipse(Object.assign({ x: x0 + d / 2 - d * 0.045, y: iy + d * 0.7, w: d * 0.09, h: d * 0.09, fill: c.P.accent, name: 'Alerte point ' + (i + 1) }, gi));
+    } else {
+      c.ellipse(Object.assign({ x: x0 + stroke / 144, y: iy + stroke / 144, w: d - stroke / 72, h: d - stroke / 72, line: o.coche === false || aFournir ? c.P.line : c.P.accent, lineW: stroke, name: 'Cercle ' + (i + 1) }, gi));
+      if (o.coche !== false && !aFournir) c.check(Object.assign({ cx: x0 + d / 2, cy: iy + d / 2, d: d * 0.92, color: c.P.accent, strokeW: stroke, name: 'Coche ' + (i + 1) }, gc));
+    }
+    c.line({ paras: ps, x: x0 + d + gap, w: Math.min(tw + 0.5, W - (x0 + d + gap) - 0.2), base, size, wt: 'semi', align: 'left', font: 'texte', color: fg, name: 'Ligne ' + (i + 1), g: 'lignes', sub: i });
+  });
+  const geo = listHeading(c, { capTop: cy0 - cap / 2, capH: cap, firstSize: size }, { x: x0, w: W - x0 - M, align: 'left', size: S.titre });
+  c.kicker(geo, { x: x0, w: W - x0 - M, align: 'left' });
+}
+V['A8/coche-par-ligne'] = (c) => checkList(c, {});
+V['A8/cercles-puis-coches'] = (c) => {
+  checkList(c, { checksApart: true, coche: c.t.coche === false ? false : undefined });
+  c.groups = [SUR, G('titre', KW.titre), G('lignes', /\b(?:lignes?|lines?|cercles?|circles?|points?|items?|cases?)\b/, { multi: true }), G('coches', /\b(?:coches?|checks?|ticks?|checkmarks?)\b/)];
+};
+V['A8/risque-puis-reponse'] = (c) => checkList(c, { mode: normKey(c.t.etat) === 'reponse' ? 'coche' : 'alerte' });
+V['A8/picto-par-ligne'] = (c) => checkList(c, { mode: 'picto', size: 30 });
+V['A8/sur-contenu'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : VS.voile.contenu, g: 'visuel' });
+  checkList(c, { color: real ? 'FFFFFF' : c.P.fg });
+  c.groups = [G('visuel', KW.visuel), SUR, G('titre', KW.titre), G('lignes', KW.lignes, { multi: true })];
+};
+
+// A17 : citations (aucun portrait, aucun guillemet décoratif).
+function quote(c, o) {
+  let q = c.f('citation', 'citation').trim();
+  if (o.guillemets && !/^[«"“]/.test(q) && !hasFournir(q)) q = c.lang === 'fr' ? '« ' + q + ' »' : '“' + q + '”';
+  const z = o.z;
+  const qt = topBox(c, { x: z.x, w: z.w, capTop: 0, paras: c.para(q, { wt: 'semi', font: 'titre', g: 'citation' }), size: o.size, min: o.min, maxTotal: o.maxTotal || 4, wt: 'semi', align: o.align, font: 'titre', lh: K.citation, balance: true, name: 'Citation' });
+  let auteur = c.f('auteur', 'auteur');
+  if (o.caps) auteur = String(auteur).toUpperCase();
+  const za = o.za || z;
+  const at = topBox(c, { x: za.x, w: za.w, capTop: 0, paras: c.para(auteur, { wt: o.caps ? 'semi' : 'regular', font: 'texte', color: o.accent ? c.P.accentTxt : c.P.fg2, g: 'auteur' }), size: o.asize, min: Math.min(o.asize, 14), maxTotal: 2, color: o.accent ? c.P.accentTxt : c.P.fg2, align: o.align, font: 'texte', lh: K.titre, balance: true, name: 'Auteur', g: 'auteur' });
+  if (o.caps) at.it.paras.forEach((p) => { p.track = 0.08; });
+  const ecart = o.ecart !== undefined ? o.ecart : STYLE.A17.ecart * o.asize / STYLE.A17.auteur[0];
+  const total = (qt.g.base - qt.g.capTop) + ecart + (at.g.base - at.g.capTop);
+  const q2 = placeTop(qt.it, (o.cy || STYLE.A17.cy) - total / 2);
+  placeTop(at.it, q2.g.base + ecart);
+  if (o.accent) c.accentUsed = true;
+  c.kicker(q2.g, { x: z.x, w: z.w, align: o.align });
+}
+V['A17/courte'] = (c) => R.A17(c);
+V['A17/longue'] = (c) => quote(c, { z: P(9.2, 22, 80, 44), size: 28, min: 22, maxTotal: 5, asize: 20, align: 'left', guillemets: false });
+V['A17/source-accent'] = (c) => quote(c, { z: P(9.2, 30, 76, 30), size: 30, min: 24, asize: 18, align: 'left', caps: true, accent: true, ecart: 0.3, guillemets: false });
+V['A17/centree-signature'] = (c) => {
+  quote(c, { z: P(15, 40, 70, 12), za: P(30, 56, 40, 5), size: 24, min: 18, maxTotal: 2, asize: 20, align: 'center', ecart: 0.42, guillemets: true });
+};
+
+// A21 : synthés et cartes d'invité.
+function people2(c) {
+  const list = arr(c.t.personnes).length ? arr(c.t.personnes) : arr(c.t.intervenants).map((id) => c.env.people[id] || { nom: id });
+  return list.map((p) => (typeof p === 'string' ? (c.env.people[p] || { nom: p }) : p));
+}
+function synthe(c, o) {
+  const S = STYLE.A21;
+  const real = o.photo === false ? false : fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : 0, g: 'visuel', label: c.lang === 'en' ? 'photo or video frame of the speaker' : 'photo ou plan de la personne' });
+  const who = c.env.people[c.t.intervenant || c.slide.intervenant] || {};
+  const list = o.list || [{ nom: c.t.nom || who.nom, fonction: c.t.fonction || who.role }];
+  const size = scalePt(S.corps, 'texte');
+  const light = o.clair;
+  list.forEach((p, i) => {
+    const right = o.right || (o.list && i === 1);
+    const x = right ? (o.list ? W * 0.547 : W * 0.497) : S.x;
+    const w = right ? W * 0.947 - x : (o.list ? 4.0 : 6);
+    const fg = real && !light ? 'FFFFFF' : c.P.fg;
+    const fg2 = real && !light ? 'FFFFFF' : (light ? c.P.fg : c.P.fg2);
+    c.line({ text: str(p.nom) || c.f('nom', 'nom'), x, w, base: S.bases[0], size, wt: 'semi', color: fg, align: right ? 'right' : 'left', font: 'texte', name: 'Nom', g: 'nom', sub: o.list ? i : undefined });
+    c.line({ text: str(p.fonction || p.role) || c.f('fonction', 'fonction'), x, w, base: S.bases[1], size, wt: 'regular', color: fg2, align: right ? 'right' : 'left', font: 'texte', name: 'Fonction', g: 'fonction', sub: o.list ? i : undefined });
+  });
+}
+V['A21/gauche'] = (c) => synthe(c, {});
+V['A21/droite'] = (c) => synthe(c, { right: true });
+V['A21/double'] = (c) => {
+  const list = people2(c).slice(0, 2);
+  while (list.length < 2) list.push({});
+  synthe(c, { list });
+};
+V['A21/sur-clair'] = (c) => synthe(c, { clair: true });
+function guestCard(c, o) {
+  o = o || {};
+  const who = c.env.people[c.t.intervenant || c.slide.intervenant] || {};
+  const zl = o.zl || P(29, 34, 42, 20);
+  const im = loadImg(c, c.slide.logo_invite || c.t.logo || (o.portrait ? null : c.slide.image));
+  if (im) putImage(c, im, fitRect(zl, im.info, 'contain'), { name: 'Logo invité', g: 'visuel' });
+  else zt(c, zl, c.lang === 'en' ? '[TO PROVIDE: logo]' : '[À FOURNIR : logo]', { size: 22, min: 16, maxTotal: 1, g: 'visuel', name: 'Logo invité' });
+  if (o.noName) return;
+  zt(c, P(15, 70, 70, 5.5), str(c.t.nom || who.nom) || c.f('nom', 'nom'), { size: 22, min: 16, maxTotal: 1, font: 'texte', g: 'nom', name: 'Nom' });
+  zt(c, P(15, 77, 70, 5), str(c.t.fonction || who.role) || c.f('fonction', 'fonction'), { size: 18, min: 14, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'fonction', name: 'Fonction' });
+}
+V['A21/carte-invite'] = (c) => guestCard(c);
+// Carte-portrait : le logo à gauche, le portrait en noir et blanc à droite, fondu dans le fond du
+// côté du logo. Sans portrait : la carte d'invité (le nom écrit remplace le visage).
+V['A21/carte-portrait'] = (c) => {
+  const im = loadImg(c, c.slide.image);
+  if (!im) {
+    if (c.slide.image) registerMissing(c, c.slide.image, 'photo', c.lang === 'en' ? 'black-and-white portrait' : 'portrait noir et blanc');
+    guestCard(c);
+    return;
+  }
+  const z = P(52, 0, 48, 100);
+  putImage(c, im, fitRect(z, im.info, 'cover'), { clip: z, name: 'Portrait', g: 'visuel', gray: true });
+  const fade = { x: z.x - 0.02, y: 0, w: z.w * 0.45, h: H };
+  genImage(c, fade, c.P.bg, (x) => 1 - smooth01(x / fade.w), 'Fondu portrait', { key: 'fondu', ppi: 24, g: 'visuel' });
+  guestCard(c, { zl: P(8, 34, 40, 28), portrait: true, noName: true });
+};
+
+// ---------------------------------------------------------------------------
+// Produit et image : A9, A10, A12, A13, A18 (A22 à A25 sont des plans vidéo)
+// ---------------------------------------------------------------------------
+// Le type d'appareil d'une capture : slide.appareil, sinon ce que dit image.attendu.
+function deviceType(c, spec, fallback) {
+  const forced = normKey(c.slide.appareil || (c.imageSpec(spec) || {}).appareil);
+  if (['telephone', 'tablette', 'portable', 'boitier'].includes(forced)) return forced;
+  const t = normText(str((c.imageSpec(spec) || {}).attendu));
+  if (/\b(tablettes?|tablets?)\b/.test(t)) return 'tablette';
+  if (/\b(ordinateurs?|portables? (?:pc|mac)|laptops?|ecrans? d'ordinateur|desktop)\b/.test(t)) return 'portable';
+  if (/\b(montres?|watch|boitiers?)\b/.test(t)) return 'boitier';
+  return fallback;
+}
+const GV_A9 = [G('visuel', KW.visuel), SUR, G('titre', KW.titre), G('chiffre', KW.chiffre), G('libelle', KW.libelle), G('lignes', KW.lignes, { multi: true })];
+
+V['A9/appareil-centre-mot'] = (c) => {
+  drawDevice(c, P(37.5, 4.4, 25, 91), deviceType(c, c.slide.image, 'telephone'), { capture: c.slide.image, g: 'visuel' });
+  const right = c.t.cote !== 'gauche';
+  const z = right ? P(66, 40, 30, 20) : P(4, 40, 30, 20);
+  const t = zt(c, z, c.f('titre', 'titre'), { size: 34, min: 26, maxTotal: 3, g: 'titre', lh: K.objet, name: 'Mot' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center' });
+  c.groups = GV_A9;
+};
+// L'objet coupé par le cadre : il sort de 10 % à gauche et en bas ; l'affirmation à droite.
+V['A9/objet-coupe'] = (c) => {
+  const right = c.t.cote === 'droite';
+  // L'objet est agrandi pour sortir du cadre (10 % à gauche et en bas), même détouré au plus près.
+  // Fiche : 58 à 62 % L, fond perdu sur 2 ou 3 bords ; le produit est calé sur sa partie opaque.
+  const box = right ? P(42, 5, 80, 135) : P(-22, 5, 80, 135);
+  productVisual(c, box, c.slide.image, {
+    g: 'visuel', ombre: false, alignX: right ? 'left' : 'right', alignY: 'top',
+    silBox: () => (right ? P(42, 7, 72, 118) : P(-14, 7, 72, 118)), ombreSil: false, exact: true
+  });
+  const z = right ? P(6, 38, 28, 24) : P(66, 38, 28, 24);
+  const t = zt(c, z, c.f('titre', 'affirmation'), { size: 34, min: 26, maxTotal: 3, g: 'titre', lh: K.objet, name: 'Affirmation' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center' });
+  c.groups = GV_A9;
+};
+V['A9/objet-liste'] = (c) => {
+  iconVisual(c, P(12, 31, 21, 37.5), c.slide.image, { g: 'visuel', glyph: 'carre' });
+  const zl = P(45, 36, 50, 28);
+  let lines = arr(c.t.lignes).slice(0, 5);
+  if (!lines.length) lines = [c.f('lignes', 'lignes')];
+  const t = zlist(c, zl, lines, { size: 24, k: K.courte, color: c.P.fg });
+  let geo = t.g;
+  if (tv(c, 'titre')) {
+    const hd = c.line({ text: c.t.titre, x: zl.x, w: zl.w, base: geo.capTop - geo.capH * 1.1, size: scalePt(32, 'titre'), wt: 'semi', align: 'left', font: 'titre', name: 'Titre', g: 'titre' });
+    geo = textGeom(hd);
+  }
+  c.kicker(geo, { x: zl.x, w: zl.w, align: 'left' });
+  c.groups = GV_A9;
+};
+V['A9/objet-chiffre'] = (c) => {
+  productVisual(c, P(-22, 4, 78, 135), c.slide.image, { g: 'visuel', ombre: false, halo: false, alignX: 'right', alignY: 'top', silBox: () => P(-14, 7, 70, 118), exact: true, ombreSil: false });
+  c.accentUsed = true;
+  const grad = gradOK(c);
+  const z = P(58, 30, 34, 30);
+  const h = zt(c, z, c.f('chiffre', 'chiffre'), { size: 110, min: 72, maxTotal: 1, noWrap: true, color: c.P.accentTxt, grad, g: 'chiffre', name: 'Chiffre' });
+  if (grad) {
+    hugText(h.it);
+    h.it.grad = true;
+  }
+  const lib = zt(c, { x: z.x - 0.2, y: h.g.base + 0.18 + descGap(c, h), w: z.w + 0.4, h: 0.5 }, c.f('libelle', 'libellé'), { size: 20, min: 14, maxTotal: 2, font: 'texte', anchor: 'top', g: 'libelle', name: 'Libellé' });
+  c.kicker(h.g, { x: z.x, w: z.w, align: 'center', size: 20 });
+  srcLine(c, { x: z.x - 0.2, y: lib.g.base + 0.16, w: z.w + 0.4, h: 0.3 }, { g: 'libelle' });
+  c.groups = GV_A9;
+};
+// Objet annoté : libellés de part et d'autre, reliés par un filet de 1 pt à l'objet.
+V['A9/annotee'] = (c) => {
+  const zo = P(30, 8, 40, 84);
+  const r = productVisual(c, zo, c.slide.image, { g: 'visuel', silBox: (b) => ({ x: b.x + b.w * 0.18, y: b.y + b.h * 0.06, w: b.w * 0.64, h: b.h * 0.86 }) });
+  const obj = r || { x: zo.x + zo.w * 0.18, y: zo.y, w: zo.w * 0.64, h: zo.h };
+  const slots = [[6, 26, 'g'], [74, 44, 'd'], [6, 64, 'g'], [74, 20, 'd'], [74, 68, 'd']];
+  arr(c.t.annotations).slice(0, 5).forEach((a, i) => {
+    const txt = typeof a === 'string' ? a : str(a.texte || a.titre);
+    const s = slots[i];
+    const left = s[2] === 'g';
+    const z = P(s[0], s[1], 20, 8);
+    const t = zt(c, z, txt, { size: 20, min: 14, maxTotal: 2, font: 'texte', align: left ? 'right' : 'left', g: 'lignes', sub: i, name: 'Libellé ' + (i + 1) });
+    const y = t.g.lines[0].c;
+    const x1 = left ? z.x + z.w + 0.12 : obj.x + obj.w - obj.w * 0.12;
+    const x2 = left ? obj.x + obj.w * 0.12 : z.x - 0.12;
+    c.rect({ x: Math.min(x1, x2), y: y - 0.007, w: Math.abs(x2 - x1), h: 0.014, fill: c.P.fg2, name: 'Filet ' + (i + 1), g: 'lignes', sub: i });
+    c.ellipse({ x: (left ? x2 : x1) - 0.035, y: y - 0.035, w: 0.07, h: 0.07, fill: c.P.fg2, name: 'Point ' + (i + 1), g: 'lignes', sub: i });
+  });
+  c.groups = GV_A9;
+};
+V['A9/empilee'] = (c) => {
+  productVisual(c, P(34, 8, 32, 31), c.slide.image, { g: 'visuel' });
+  const zt1 = P(15, 43, 70, 10);
+  const t = zt(c, zt1, c.f('titre', 'nom'), { size: 32, min: 24, maxTotal: 1, g: 'titre', name: 'Nom' });
+  const lines = arr(c.t.lignes).slice(0, 3);
+  if (lines.length) zlist(c, { x: P(20, 0, 60, 0).x, y: t.g.base + 0.42, w: P(0, 0, 60, 0).w, h: 1.2 }, lines, { size: 24, k: K.courte, color: c.P.fg, wt: 'regular', align: 'center', anchor: 'top' });
+  c.kicker(t.g, { x: zt1.x, w: zt1.w, align: 'center' });
+  c.groups = GV_A9;
+};
+
+// A10 : la capture dans un appareil générique, ou nue.
+V['A10/telephone-centre'] = (c) => { drawDevice(c, P(37.5, 4.4, 25, 91), 'telephone', { capture: c.slide.image, g: 'visuel' }); };
+V['A10/tablette-centre'] = (c) => { drawDevice(c, P(14, 4.4, 72, 91), 'tablette', { capture: c.slide.image, g: 'visuel' }); };
+V['A10/portable-centre'] = (c) => { drawDevice(c, P(7, 4.5, 86, 91), 'portable', { capture: c.slide.image, g: 'visuel' }); };
+V['A10/zoom-serre'] = (c) => { drawDevice(c, P(28, -5, 46, 110), 'boitier', { capture: c.slide.image, g: 'visuel', screen: P(31, 12, 38, 76) }); };
+V['A10/capture-nue'] = (c) => {
+  const im = loadImg(c, c.slide.image);
+  if (im) {
+    // Une capture au format de l'écran (16:9 à 4 % près) passe à fond perdu ; sinon elle reste entière
+    // (une interface coupée se lit comme une erreur de cadrage) : contenue sur 92 % H, coins arrondis.
+    const box = { x: 0, y: 0, w: W, h: H };
+    const ratio = im.info.w / im.info.h;
+    if (Math.abs(ratio / (W / H) - 1) <= 0.04 || im.spec.ajustement === 'couvrir') {
+      putImage(c, im, fitRect(box, im.info, 'cover'), { clip: box, name: 'Capture', g: 'visuel' });
+      return;
+    }
+    const r = fitRect(grow(box, -W * 0.04, -H * 0.04), im.info, 'contain');
+    putImage(c, im, r, { radius: STYLE.schema.rayon, name: 'Capture', g: 'visuel' });
+    return;
+  }
+  const h = H * 0.85;
+  screenVisual(c, { x: (W - h * 1.6) / 2, y: (H - h) / 2, w: h * 1.6, h }, c.slide.image, { g: 'visuel' });
+};
+V['A10/rangee'] = (c) => {
+  const imgs = imagesOf(c);
+  const type = deviceType(c, imgs[0] || c.slide.image, 'telephone');
+  [10.5, 38, 65.5].forEach((x, i) => {
+    drawDevice(c, P(x, 3, 24, 94), type, { capture: imgs[i] || (i === 0 ? c.slide.image : null), g: 'visuel', sub: i, mute: i !== 1, hi: [0, 1, 2][i], variant: ['liste', 'tableau', 'document'][i] });
+  });
+  c.groups = [G('visuel', KW.visuel, { multi: 'auto' })];
+};
+
+// A12 : vue intérieure, éclaté, flux.
+// Pièce mise en avant d'un repli de vue intérieure : même gris que les autres, liseré d'accent et
+// lueur d'accent floue (jamais un aplat d'accent atténué, qui vire au brun sur fond sombre).
+function glowPart(c, b, rad, name, g) {
+  const pad = Math.min(0.32, Math.max(0.16, Math.min(b.w, b.h) * 0.35));
+  genImage(c, grow(b, pad, pad), c.P.accent, alphaAround(darkBg(c) ? 0.5 : 0.38, { x: pad, y: pad, w: b.w, h: b.h }, rad, pad * 0.32, 0.08), 'Lueur ' + name, Object.assign({ key: 'lueurpiece' + round2(pad) + round2(rad), ppi: 44 }, g));
+  c.round(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill: mix(c.P.bg, c.P.fg, darkBg(c) ? 0.16 : 0.1), line: c.P.accent, lineW: 1.5, radius: rad, name }, g));
+}
+V['A12/macro-matiere'] = (c) => {
+  const box = { x: 0, y: 0, w: W, h: H };
+  const im = loadImg(c, c.slide.image);
+  if (im) {
+    putImage(c, im, fitRect(box, im.info, 'cover'), { clip: box, name: 'Macro', g: 'visuel' });
+    return;
+  }
+  missingVisual(c, c.slide.image, 'photo', c.lang === 'en' ? 'macro shot of the material' : 'macro de la matière', { g: 'visuel' }, () => {
+    const dark = darkBg(c);
+    c.rect({ x: 0, y: 0, w: W, h: H, fill: mix(c.P.bg, c.P.fg, dark ? 0.06 : 0.05), name: 'Schéma matière', g: 'visuel' });
+    // Une bande de lumière rasante, en diagonale, en dégradé de transparence.
+    const ang = -0.42;
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    genImage(c, box, dark ? c.P.fg : 'FFFFFF', (x, y) => {
+      const d = (x - W * 0.52) * sa - (y - H * 0.5) * ca;
+      // Matière brossée : de fines stries parallèles, plus visibles dans la lumière.
+      const band = Math.exp(-(d * d) / (2 * 0.55 * 0.55));
+      const u = x * ca + y * sa;
+      const v = -x * sa + y * ca;
+      const strie = 0.5 + 0.5 * Math.sin(v * 140 + Math.sin(v * 23 + u * 0.7) * 2.2);
+      return (dark ? 0.16 : 0.6) * band * (0.75 + 0.25 * strie) + (dark ? 0.05 : 0.2) * Math.exp(-((d - 1.4) * (d - 1.4)) / (2 * 0.25 * 0.25)) + (dark ? 0.025 : 0.06) * strie;
+    }, 'Schéma lumière rasante', { g: 'visuel', key: 'rasante2', ppi: 48 });
+  });
+};
+V['A12/capot-ouvert'] = (c) => {
+  const z = P(14, 6, 72, 88);
+  productVisual(c, z, c.slide.image, {
+    g: 'visuel', label: c.lang === 'en' ? 'object with its cover open' : 'objet capot ouvert',
+    repli: (b) => {
+      const dark = darkBg(c);
+      const shell = { x: b.x + b.w * 0.06, y: b.y + b.h * 0.08, w: b.w * 0.88, h: b.h * 0.84 };
+      if (!dark) contactShadow(c, shell, { g: 'visuel' });
+      // La coque : un fond plus sombre que l'objet, un liseré métallique ; les pièces au trait fin.
+      c.round({ x: shell.x, y: shell.y, w: shell.w, h: shell.h, fill: mix(c.P.bg, dark ? '000000' : c.P.fg, dark ? 0.35 : 0.06), line: mix(c.P.bg, c.P.fg, dark ? 0.42 : 0.3), lineW: 1.5, radius: Math.min(shell.w, shell.h) * 0.1, name: 'Schéma coque', g: 'visuel' });
+      const cells = [[0.05, 0.07, 0.5, 0.4], [0.59, 0.07, 0.36, 0.24], [0.59, 0.35, 0.36, 0.58], [0.05, 0.52, 0.24, 0.41], [0.33, 0.52, 0.22, 0.41]];
+      cells.forEach((q, i) => {
+        const b2 = { x: shell.x + shell.w * q[0], y: shell.y + shell.h * q[1], w: shell.w * q[2], h: shell.h * q[3] };
+        if (i === 0) {
+          glowPart(c, b2, 0.06, 'Schéma bloc en avant', { g: 'visuel' });
+          return;
+        }
+        c.round({ x: b2.x, y: b2.y, w: b2.w, h: b2.h, fill: mix(c.P.bg, c.P.fg, (dark ? 0.08 : 0.05) + i * 0.012), line: mix(c.P.bg, c.P.fg, dark ? 0.28 : 0.22), lineW: 0.75, radius: 0.06, name: 'Schéma bloc', g: 'visuel' });
+        // Détail au trait : deux ou trois filets parallèles, sans inscription.
+        for (let k = 0; k < 3; k++) c.rect({ x: b2.x + b2.w * 0.14, y: b2.y + b2.h * (0.3 + k * 0.2), w: b2.w * (k === 1 ? 0.5 : 0.72), h: 0.012, fill: mix(c.P.bg, c.P.fg, dark ? 0.22 : 0.2), name: 'Schéma trait', g: 'visuel' });
+      });
+    }
+  });
+};
+V['A12/eclate-axial'] = (c) => {
+  const z = P(15, 0, 70, 100);
+  let hot = null;
+  productVisual(c, z, c.slide.image, {
+    g: 'visuel', label: c.lang === 'en' ? 'exploded view along one axis' : 'éclaté le long d\'un axe',
+    repli: () => {
+      const dark = darkBg(c);
+      const n = 5;
+      // Des plaques fines et bien séparées le long d'un axe : on lit un éclaté, pas une pile.
+      for (let i = n - 1; i >= 0; i--) {
+        const pw = W * 0.34;
+        const ph = H * 0.085;
+        const x = W * 0.3 + i * W * 0.012;
+        const y = H * 0.13 + i * H * 0.155;
+        const isHot = i === 2;
+        if (isHot) {
+          glowPart(c, { x, y, w: pw, h: ph }, ph * 0.3, 'Schéma plaque en avant', { g: 'visuel' });
+          hot = { x, y, w: pw, h: ph };
+          continue;
+        }
+        const fill = mix(c.P.bg, c.P.fg, (dark ? 0.16 : 0.09) + i * 0.015);
+        c.round({ x, y, w: pw, h: ph, fill, line: mix(fill, 'FFFFFF', dark ? 0.25 : 0.6), lineW: 0.75, radius: ph * 0.3, grad2: { from: mix(fill, 'FFFFFF', dark ? 0.14 : 0.4), to: mix(fill, '000000', dark ? 0.2 : 0.06), ang: 90 }, name: 'Schéma plaque', g: 'visuel' });
+      }
+    }
+  });
+  const label = tv(c, 'libelle') || tv(c, 'titre');
+  if (label) {
+    // L'étiquette à droite de la pièce mise en avant, reliée par un filet horizontal qui ne traverse
+    // aucune autre pièce.
+    const target = hot || { x: W * 0.36, y: H * 0.45, w: W * 0.34, h: 0.1 };
+    const lx = target.x + target.w + 0.75;
+    const zl = { x: lx, y: target.y + target.h / 2 - 0.2, w: W - M - lx, h: 0.4 };
+    zt(c, zl, label, { size: 18, min: 12, maxTotal: 1, font: 'texte', align: 'left', g: 'note', name: 'Étiquette' });
+    c.rect({ x: target.x + target.w + 0.12, y: target.y + target.h / 2 - 0.007, w: lx - 0.12 - (target.x + target.w + 0.12), h: 0.014, fill: c.P.fg2, name: 'Filet', g: 'note' });
+  }
+  c.groups = [G('visuel', KW.visuel), G('note', /\b(?:etiquettes?|labels?|filets?|libelles?|notes?)\b/)];
+};
+// Flux ou halo autour de la pièce : l'objet, puis le halo d'accent (seul accent de la slide).
+V['A12/flux-lumiere'] = (c) => {
+  const zo = P(35, 22, 30, 56);
+  const flow = P(4, 26, 92, 48);
+  // Le flux : des traînées d'accent en dégradé de transparence, de part et d'autre de la pièce.
+  genImage(c, flow, c.P.accent, (x, y) => {
+    const u = (x - flow.w / 2) / (flow.w / 2);
+    const v = (y - flow.h / 2) / (flow.h / 2);
+    const fade = Math.exp(-u * u * 1.6) * (1 - smooth01((Math.abs(u) - 0.75) / 0.25));
+    let a = 0;
+    [-0.55, -0.2, 0.15, 0.5].forEach((o, k) => {
+      const yy = v - o - 0.12 * Math.sin(u * 2.2 + k);
+      a += Math.exp(-(yy * yy) / (2 * 0.035 * 0.035)) * (0.55 - k * 0.07);
+    });
+    return a * fade + 0.22 * Math.exp(-(u * u + v * v) * 2.2);
+  }, 'Flux', { g: 'note', key: 'flux', ppi: 40 });
+  productVisual(c, zo, c.slide.image, { g: 'visuel', halo: false, ombre: false, ombreSil: false, haloSil: false });
+  c.accentUsed = true;
+  c.groups = [G('visuel', KW.visuel), G('note', /\b(?:flux|halos?|lumieres?|trainees?|faisceaux?)\b/)];
+};
+
+// A13 : produit seul. Ombre de contact sur fond clair, halo doux neutre sur fond sombre.
+V['A13/centre-entier'] = (c) => {
+  // Seule la hauteur est fixée (72 % H) ; la largeur suit la forme du produit.
+  productVisual(c, P(10, 14, 80, 72), c.slide.image, { g: 'visuel', silBox: () => P(37, 14, 26, 72) });
+};
+V['A13/hero-coupe'] = (c) => {
+  // Agrandi jusqu'à sortir du cadre : par le bas (produit en hauteur) ou par la droite (en largeur).
+  productVisual(c, P(26, 8, 90, 145), c.slide.image, { g: 'visuel', alignX: 'left', alignY: 'top', ombre: false, halo: false, silBox: () => P(24, 10, 96, 112), exact: true, ombreSil: false });
+};
+V['A13/profil-levitation'] = (c) => {
+  productVisual(c, P(14, 39, 72, 21), c.slide.image, { g: 'visuel', ombre: false, forme: 'bande', silBox: () => P(14, 46, 72, 7), exact: true, ombreSil: false });
+};
+V['A13/coloris'] = (c) => {
+  const imgs = imagesOf(c);
+  const sils = [P(19, 15, 28.4, 70), P(52.6, 21, 25, 62)];
+  [[20, 10, 28, 80], [52, 10, 26, 80]].forEach((z, i) => {
+    productVisual(c, P(z[0], z[1], z[2], z[3]), imgs[i] || (i === 0 ? c.slide.image : null), { g: 'visuel', sub: i, ton: i * 0.06, silBox: () => sils[i], exact: true });
+  });
+  c.groups = [G('visuel', KW.visuel, { multi: 'auto' })];
+};
+
+// A18 : photo plein cadre.
+function photoNote(c, z, text, i) {
+  if (!str(text).trim()) return;
+  c.round({ x: z.x, y: z.y, w: z.w, h: z.h, fill: '000000', transparency: 45, radius: 0.08, name: 'Cartouche', g: 'note', sub: i });
+  c.text({ x: z.x + 0.12, y: z.y + 0.06, w: z.w - 0.24, h: z.h - 0.12, text, size: 11, min: 9, color: 'FFFFFF', align: 'left', valign: 'middle', font: 'texte', lh: K.titre, name: 'Note', g: 'note', sub: i });
+}
+V['A18/usage'] = (c) => {
+  fullPhoto(c, photoSpec(c), { g: 'visuel', label: c.lang === 'en' ? 'photo of the product in use' : 'photo d\'usage' });
+  if (tv(c, 'note')) photoNote(c, P(70, 82, 25, 12), c.t.note);
+};
+V['A18/exemple-cartouche'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { g: 'visuel' });
+  if (real) photoNote(c, P(70, 80, 25, 13), c.f('note', 'légende'));
+};
+V['A18/diptyque'] = (c) => {
+  const imgs = imagesOf(c);
+  const notes = arr(c.t.notes);
+  [P(0, 0, 50, 100), P(50, 0, 50, 100)].forEach((z, i) => {
+    const real = fullPhoto(c, imgs[i] || (i === 0 ? c.slide.image : null), { box: { x: z.x + (i ? 0.02 : 0), y: 0, w: z.w - 0.02, h: H }, g: 'visuel' });
+    if (real && notes[i]) photoNote(c, i ? P(76, 82, 20, 12) : P(4, 82, 20, 12), notes[i], i);
+  });
+  c.groups = [G('visuel', KW.visuel), G('note', KW.note)];
+};
+V['A18/photo-titre'] = (c) => {
+  const real = fullPhoto(c, photoSpec(c), { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : VS.voile.photo, g: 'visuel' });
+  const z = P(8, 36, 84, 23);
+  const color = real ? 'FFFFFF' : c.P.fg;
+  const t = zt(c, z, c.f('titre', 'titre'), { size: 72, min: 44, maxTotal: 2, color, point: true, g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: z.x, w: z.w, align: 'center', color: real ? 'E8E8E8' : undefined });
+};
+// A22 à A25 : plans de scène (vidéo, salle). En slide : la photo de la scène en plein cadre.
+['A22/hall-ecran', 'A22/scene-mur', 'A22/panneau-verre', 'A23/mot-coupe', 'A23/contenu-lisible', 'A23/interface-geante', 'A23/slide-floue',
+  'A24/large-centre', 'A24/taille-centre', 'A24/decor-sujet', 'A25/table-flux', 'A25/mains-fond-uni', 'A25/epaule', 'A25/table-haute', 'A25/tend-appareil'].forEach((k) => {
+  V[k] = (c) => {
+    c.warn(k.split('/')[0] + ' « ' + k.split('/')[1] + ' » est un plan de scène (vidéo ou salle) : en slide, il est rendu comme une photo plein cadre.');
+    // La photo de la scène à fond perdu (repli doux sans personne dessinée), un titre éventuel en bas.
+    const real = fullPhoto(c, photoSpec(c), { g: 'visuel', label: c.lang === 'en' ? 'photo of the scene' : 'photo de la scène' });
+    if (tv(c, 'titre')) {
+      if (real) gradientVeil(c, { x: 0, y: H * 0.55, w: W, h: H * 0.45 }, 0.6, 'bas', { g: 'titre' });
+      const t = c.text({ x: M, y: H - 1.55, w: FULL_W, h: 1.15, text: c.t.titre, size: STYLE.A18.titre[0], min: STYLE.A18.titre[1], wt: 'semi', align: 'left', valign: 'bottom', color: real ? 'FFFFFF' : c.P.fg, font: 'titre', lh: K.titre, name: 'Titre', g: 'titre' });
+      c.kicker(textGeom(t), { x: M, w: FULL_W, align: 'left', color: real ? 'E8E8E8' : undefined });
+    }
+  };
+});
+
+// ---------------------------------------------------------------------------
+// Chiffres et preuves : A5, A6, A11, A15, A16
+// ---------------------------------------------------------------------------
+// Écart à ajouter sous un chiffre qui a un jambage (g, j, p, q, y), pour que le libellé ne le touche pas.
+function descGap(c, h) {
+  return /[gjpqyç,;]/.test(shownText(c, c.f('chiffre', 'chiffre'))) ? h.g.capH * 0.28 : 0;
+}
+// Le chiffre héros : en dégradé d'accent si permis, sinon accent uni ; resserré sur son texte.
+function heroNumber(c, z, o) {
+  o = o || {};
+  const grad = o.grad !== false && gradOK(c);
+  const color = o.color || c.P.accentTxt;
+  const h = zt(c, z, c.f('chiffre', 'chiffre'), { size: o.size || 144, min: o.min || 110, maxTotal: 1, noWrap: true, color, grad: grad && !o.color, g: 'chiffre', name: 'Chiffre', font: 'titre' });
+  if (grad && !o.color) {
+    hugText(h.it);
+    h.it.grad = true;
+  }
+  c.accentUsed = true;
+  return h;
+}
+V['A5/centre'] = (c) => R.A5(c);
+V['A5/bloc'] = (c) => {
+  const S = STYLE.A5;
+  const h = heroNumber(c, { x: M, y: P(0, 32.6, 0, 25.9).y, w: FULL_W, h: P(0, 0, 0, 25.9).h });
+  // Libellé collé (haut des capitales à 63 % H) ; plus bas si le chiffre a un jambage (g, j, p, q, y).
+  const desc = /[gjpqyç,;]/.test(shownText(c, c.f('chiffre', 'chiffre'))) ? h.g.base + h.g.capH * 0.32 : 0;
+  const lib = zt(c, { x: S.libelleX, y: Math.max(H * 0.63, desc), w: S.libelleW, h: 0.6 }, c.f('libelle', 'libellé'), { size: 24, min: 18, maxTotal: 2, font: 'texte', anchor: 'top', g: 'libelle', name: 'Libellé' });
+  c.kicker(h.g, { x: M, w: FULL_W, align: 'center', size: S.surtitre, ecart: S.surtitreEcart });
+  c.sourceLine({ y: lib.g.base + 0.2, x: S.libelleX, w: S.libelleW, g: 'libelle' });
+};
+// Le chiffre à droite, le visuel coupé par le bord gauche (un écran reste entier).
+V['A5/a-cote'] = (c) => {
+  const spec = c.slide.image;
+  const kind = placeholderKind(c, c.imageSpec(spec), str((c.imageSpec(spec) || {}).attendu), {});
+  const im = loadImg(c, spec);
+  if (kind === 'interface' || kind === 'carte') screenVisual(c, P(5, 14, 48, 72), spec, { g: 'visuel', mode: im ? 'cover' : 'contain', clip: im ? undefined : undefined });
+  else if (kind === 'appareil') drawDevice(c, P(14, 4.4, 25, 91), 'telephone', { capture: spec, g: 'visuel' });
+  else productVisual(c, P(-24, 5, 78, 132), spec, { g: 'visuel', alignX: 'right', alignY: 'top', ombre: false, silBox: () => P(-14, 8, 66, 112), exact: true, ombreSil: false });
+  const z = P(58, 34, 36, 20.9);
+  const h = heroNumber(c, z, { size: 116, min: hasFournir(c.f('chiffre', 'chiffre')) ? 60 : 88 });
+  const lib = zt(c, { x: P(58, 0, 0, 0).x, y: h.g.base + 0.3 + descGap(c, h), w: P(0, 0, 36, 0).w, h: 0.6 }, c.f('libelle', 'libellé'), { size: 22, min: 16, maxTotal: 2, font: 'texte', anchor: 'top', g: 'libelle', name: 'Libellé' });
+  c.kicker(h.g, { x: z.x, w: z.w, align: 'center', size: 22, ecart: STYLE.A5.surtitreEcart });
+  srcLine(c, { x: z.x, y: lib.g.base + 0.18, w: z.w, h: 0.3 }, { g: 'libelle' });
+  c.groups = [G('visuel', KW.visuel), SUR, G('chiffre', KW.chiffre), G('libelle', KW.libelle)];
+};
+// Le chiffre blanc sur une photo floutée et assombrie (la photo se fournit déjà floutée) ; sans
+// photo, la variante « centre » sur le fond du bloc.
+V['A5/sur-photo'] = (c) => {
+  const spec = photoSpec(c);
+  if (!loadImg(c, spec)) {
+    if (spec) registerMissing(c, spec, 'photo', c.lang === 'en' ? 'blurred photo of the place or the use' : 'photo floutée du lieu ou de l\'usage');
+    R.A5(c);
+    return;
+  }
+  fullPhoto(c, spec, { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : VS.voile.chiffre, g: 'visuel' });
+  const h = heroNumber(c, P(6, 31.5, 88, 25.9), { color: 'FFFFFF', grad: false });
+  const lib = zt(c, P(8, 72.2, 84, 4.3), c.f('libelle', 'libellé'), { size: 24, min: 18, maxTotal: 1, font: 'texte', color: 'FFFFFF', g: 'libelle', name: 'Libellé' });
+  c.kicker(h.g, { x: M, w: FULL_W, align: 'center', size: 24, color: 'E8E8E8', ecart: STYLE.A5.surtitreEcart });
+  srcLine(c, { x: P(8, 0, 0, 0).x, y: lib.g.base + 0.2, w: P(0, 0, 84, 0).w, h: 0.3 }, { color: 'C8C8C8', g: 'libelle' });
+  c.groups = [G('visuel', KW.visuel), SUR, G('chiffre', KW.chiffre), G('libelle', KW.libelle)];
+};
+// Chiffre dans un anneau lumineux : anneau d'accent (trait 2,2 % H) et halos flous concentriques.
+V['A5/objet-anneau'] = (c) => {
+  const z = P(33.3, 20.3, 33.3, 59.4);
+  const d = Math.min(z.w, z.h);
+  const cx = z.x + z.w / 2;
+  const cy = z.y + z.h / 2;
+  const tw = H * 0.022;
+  const glow = { x: cx - d * 0.85, y: cy - d * 0.85, w: d * 1.7, h: d * 1.7 };
+  const r0 = d / 2 - tw / 2;
+  genImage(c, glow, c.P.accent, (x, y) => alphaRing(0.3, r0, d * 0.05, glow)(x, y) + alphaRing(0.16, r0, d * 0.16, glow)(x, y) + alphaRing(0.08, r0 * 1.2, d * 0.28, glow)(x, y), 'Halo anneau', { g: 'visuel', key: 'anneau', ppi: 44 });
+  c.ellipse({ x: cx - d / 2 + tw / 2, y: cy - d / 2 + tw / 2, w: d - tw, h: d - tw, line: c.P.accent, lineW: tw * 72, name: 'Anneau', g: 'visuel' });
+  c.accentUsed = true;
+  const fg = darkBg(c) ? 'FFFFFF' : c.P.fg;
+  const h = zt(c, P(36, 40.3, 28, 12.9), c.f('chiffre', 'durée'), { size: 72, min: 40, maxTotal: 1, noWrap: true, color: fg, g: 'chiffre', name: 'Chiffre' });
+  if (tv(c, 'libelle')) zt(c, { x: z.x + d * 0.15, y: h.g.base + 0.12, w: d * 0.7, h: 0.5 }, c.t.libelle, { size: 34, min: 20, maxTotal: 1, font: 'texte', color: fg, anchor: 'top', g: 'libelle', name: 'Unité' });
+  c.kicker({ capTop: z.y - 0.1, capH: 0.5, firstSize: 48 }, { x: M, w: FULL_W, align: 'center', size: 20, accent: false });
+  srcLine(c, { x: M, y: z.y + z.h + 0.2, w: FULL_W, h: 0.3 }, { g: 'libelle' });
+  c.groups = [G('visuel', /\b(?:anneaux?|rings?|cercles?|circles?)\b/), SUR, G('chiffre', KW.chiffre), G('libelle', KW.libelle)];
+};
+// Chiffre dans une jauge pleine : pilule d'accent (rayon 28 % de sa hauteur) et plot à droite.
+V['A5/objet-jauge'] = (c) => {
+  const z = P(36, 37, 31, 26);
+  const plot = { x: z.x + z.w + 0.05, y: z.y + z.h / 2 - H * 0.04, w: W * 0.016, h: H * 0.08 };
+  const ring = grow(z, 0.07, 0.07);
+  c.round({ x: ring.x, y: ring.y, w: ring.w, h: ring.h, line: mix(c.P.fg, c.P.bg, 0.45), lineW: 3, radius: ring.h * 0.3, name: 'Jauge contour', g: 'visuel' });
+  // Chiffre à fournir : la jauge reste vide (un liseré d'accent), pour que le marqueur estompé se
+  // lise sur le fond et non sur l'accent ; elle se remplit quand le chiffre arrive.
+  const empty = hasFournir(c.f('chiffre', 'autonomie'));
+  if (empty) c.round({ x: z.x, y: z.y, w: z.w, h: z.h, line: c.P.accent, lineW: 2, radius: z.h * 0.28, name: 'Jauge', g: 'visuel' });
+  else c.round({ x: z.x, y: z.y, w: z.w, h: z.h, fill: c.P.accent, radius: z.h * 0.28, name: 'Jauge', g: 'visuel' });
+  c.round({ x: plot.x + 0.07, y: plot.y, w: plot.w, h: plot.h, fill: mix(c.P.fg, c.P.bg, 0.45), radius: plot.w / 2, name: 'Jauge plot', g: 'visuel' });
+  c.accentUsed = true;
+  const on = empty ? c.P.fg : readableOn(c.P.accent, c.T.fondSombre, 'FFFFFF');
+  zt(c, P(38.5, 37, 26, 26), c.f('chiffre', 'autonomie'), { size: 54, min: 32, maxTotal: 1, noWrap: true, color: on, g: 'chiffre', name: 'Chiffre' });
+  if (tv(c, 'libelle')) zt(c, { x: 0.4, y: z.y, w: z.x - 0.4 - 0.25, h: z.h }, c.t.libelle, { size: 54, min: 28, maxTotal: 1, align: 'right', g: 'libelle', name: 'Libellé' });
+  srcLine(c, { x: M, y: ring.y + ring.h + 0.3, w: FULL_W, h: 0.3 }, { g: 'libelle' });
+  c.groups = [G('visuel', /\b(?:jauges?|gauges?|batteries?|piles?)\b/), G('chiffre', KW.chiffre), G('libelle', KW.libelle)];
+};
+// Chiffre au trait : contour d'accent de 2,5 pt, sans remplissage, lueur de 4 pt à 40 %.
+V['A5/contour'] = (c) => {
+  const S = STYLE.A5;
+  const h = zt(c, P(10, 32.6, 80, 25.9), c.f('chiffre', 'chiffre'), { size: 144, min: 110, maxTotal: 1, noWrap: true, color: c.P.accentTxt, g: 'chiffre', name: 'Chiffre' });
+  if (!hasFournir(c.t.chiffre)) h.it.outline = { color: c.P.accent, pt: 2.5, glow: 4, glowA: 0.4 };
+  c.accentUsed = true;
+  // Comme « bloc » : le libellé descend sous un chiffre qui a un jambage (g, j, p, q, y).
+  const desc = /[gjpqyç,;]/.test(shownText(c, c.f('chiffre', 'chiffre'))) ? h.g.base + h.g.capH * 0.32 : 0;
+  const lib = zt(c, { x: S.libelleX, y: Math.max(H * 0.63, desc), w: S.libelleW, h: 0.6 }, c.f('libelle', 'libellé'), { size: 24, min: 18, maxTotal: 2, font: 'texte', color: darkBg(c) ? 'FFFFFF' : c.P.fg, anchor: 'top', g: 'libelle', name: 'Libellé' });
+  c.kicker(h.g, { x: M, w: FULL_W, align: 'center', size: S.surtitre, ecart: S.surtitreEcart });
+  c.sourceLine({ y: lib.g.base + 0.2, x: S.libelleX, w: S.libelleW, g: 'libelle' });
+};
+
+// A6 : barres fines, libellé au-dessus, seule l'étiquette d'écart écrite au bout de la barre de soi.
+V['A6/barres'] = (c) => {
+  const zt0 = P(6, 8.9, 88, 5);
+  const t = zt(c, zt0, c.f('titre', 'grandeur mesurée'), { size: 28, min: 20, maxTotal: 1, anchor: 'top', g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: zt0.x, w: zt0.w, align: 'center' });
+  c.accentUsed = true;
+  let bars = arr(c.t.barres).slice(0, 4);
+  if (!bars.length) bars = [{ libelle: c.f('barres', 'barres') }];
+  const vals = bars.map((b) => Number(b.valeur));
+  const known = vals.every((v) => isFinite(v) && v > 0);
+  const maxV = known ? Math.max.apply(null, vals) : 1;
+  const n = bars.length;
+  const pitch = H * 0.145;
+  const mid = n <= 2 ? H * 0.583 : H * 0.52;
+  const X0 = W * 0.15;
+  const LEN = W * 0.7;
+  const th = H * 0.011;
+  const showValues = c.t.afficher_valeurs === undefined ? ['valeurs', 'graduee', 'exigee'].includes(c.env.pub.graduation) : !!c.t.afficher_valeurs;
+  let lastY = 0;
+  bars.forEach((b, i) => {
+    const hl = !!b.mise_en_avant;
+    const by = mid + (i - (n - 1) / 2) * pitch;
+    const len = known ? Math.max(th * 2, vals[i] / maxV * LEN) : LEN;
+    const lab = str(b.libelle) || c.f('_', 'libellé');
+    c.line({ text: lab, x: X0, w: LEN * 0.62, base: by - H * 0.03, size: scalePt(23, 'texte'), wt: 'semi', color: hl ? c.P.fg : c.P.fg2, align: 'left', font: 'texte', name: 'Libellé barre ' + (i + 1), g: 'barres', sub: i });
+    if (known) c.round({ x: X0, y: by - th / 2, w: len, h: th, fill: hl ? c.P.accent : c.P.other, radius: th / 2, name: 'Barre ' + (i + 1), g: 'barres', sub: i });
+    else c.add({ k: 'path', pts: [[X0, by], [X0 + len, by]], stroke: c.P.other, strokeW: 2, dash: 'sysDot', cap: 'rnd', name: 'Barre ' + (i + 1), g: 'barres', sub: i });
+    let et = b.etiquette !== undefined ? String(b.etiquette) : (showValues && known ? String(b.valeur) + (c.t.unite ? ' ' + c.t.unite : '') : '');
+    if (!known && hl && !et) et = c.lang === 'en' ? '[TO PROVIDE: gap]' : '[À FOURNIR : écart]';
+    if (et) {
+      // L'étiquette finit au bout de la barre ; si la barre est trop courte pour la porter sans toucher
+      // le libellé, elle finit au bout de la piste (même ligne de base), comme une colonne de valeurs.
+      const ps = scalePt(23, 'texte');
+      const nameW = textWidth(shownText(c, lab), ps, true, trackFor('texte', ps), 'texte');
+      const etW = textWidth(shownText(c, et), ps, true, trackFor('texte', ps), 'texte');
+      const end = X0 + len - etW < X0 + nameW + 0.3 ? X0 + LEN : X0 + len;
+      c.line({ text: et, x: end - 3.2, w: 3.2, base: by - H * 0.03, size: ps, wt: 'semi', color: hl ? c.P.fg : c.P.fg2, align: 'right', font: 'texte', name: 'Valeur barre ' + (i + 1), g: 'barres', sub: i });
+    }
+    lastY = by;
+  });
+  if (tv(c, 'axe')) c.line({ text: c.t.axe, x: X0, w: LEN, base: lastY + H * 0.08, size: scalePt(16, 'texte'), wt: 'regular', color: c.P.fg2, align: 'left', font: 'texte', name: 'Sens de lecture' });
+  srcLine(c, P(6, 91, 88, 4));
+};
+// Lissage d'une série (Catmull-Rom), pour une courbe sans graduation.
+function smoothPts(pts, k) {
+  if (pts.length < 3) return pts;
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let s = 0; s < k; s++) {
+      const t = s / k;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push([0, 1].map((j) => 0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+// Courbes sur deux axes, sans graduation : axes en filets gris, noms des axes, séries de
+// l'utilisateur (soi en accent, l'autre en gris). Sans données : axes et noms posés, un [À FOURNIR].
+V['A6/deux-axes'] = (c) => {
+  const zt0 = P(20, 7.5, 70, 5);
+  const t = zt(c, zt0, c.f('titre', 'grandeur mesurée'), { size: 28, min: 20, maxTotal: 1, anchor: 'top', g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: zt0.x, w: zt0.w, align: 'center' });
+  c.accentUsed = true;
+  const A = { x0: W * 0.2, y0: H * 0.18, x1: W * 0.9, y1: H * 0.86 };
+  const axis = mix(c.P.fg, c.P.bg, 0.7);
+  c.rect({ x: A.x0, y: A.y0, w: 0.02, h: A.y1 - A.y0, fill: axis, name: 'Axe vertical', g: 'titre' });
+  c.rect({ x: A.x0, y: A.y1 - 0.01, w: A.x1 - A.x0, h: 0.02, fill: axis, name: 'Axe horizontal', g: 'titre' });
+  const axeY = tv(c, 'axe_y');
+  const axeX = tv(c, 'axe_x') || tv(c, 'axe');
+  if (axeY) {
+    const ty = c.text({ x: W * 0.02, y: H * 0.46, w: W * 0.165, h: 0.5, text: axeY, size: 16, min: 12, maxTotal: 2, wt: 'semi', color: c.P.fg2, align: 'right', valign: 'top', font: 'texte', lh: K.titre, name: 'Axe vertical nom', g: 'titre' });
+    if (tv(c, 'sens_y')) c.text({ x: W * 0.02, y: ty.y + 0.38, w: W * 0.165, h: 0.3, text: c.t.sens_y, size: 10, min: 9, maxTotal: 2, color: c.P.fg2, align: 'right', valign: 'top', font: 'texte', lh: K.titre, name: 'Axe vertical sens', g: 'titre' });
+  }
+  if (axeX) {
+    c.text({ x: A.x0, y: A.y1 + 0.1, w: A.x1 - A.x0, h: 0.3, text: axeX, size: 16, min: 12, maxLines: 1, wt: 'semi', color: c.P.fg2, align: 'center', valign: 'top', font: 'texte', lh: K.titre, name: 'Axe horizontal nom', g: 'titre' });
+    if (tv(c, 'sens_x')) c.text({ x: A.x0, y: A.y1 + 0.36, w: A.x1 - A.x0, h: 0.22, text: c.t.sens_x, size: 10, min: 9, maxLines: 1, color: c.P.fg2, align: 'center', valign: 'top', font: 'texte', lh: K.titre, name: 'Axe horizontal sens', g: 'titre' });
+  }
+  const series = arr(c.t.series).filter((s) => s && arr(s.points).length >= 2);
+  if (!series.length) {
+    zt(c, { x: A.x0, y: A.y0, w: A.x1 - A.x0, h: A.y1 - A.y0 }, c.lang === 'en' ? '[TO PROVIDE: curves]' : '[À FOURNIR : courbes]', { size: 28, min: 20, maxTotal: 1, g: 'barres', name: 'Courbes' });
+    srcLine(c, P(6, 94, 88, 4));
+    return;
+  }
+  const norm = series.map((s) => arr(s.points).map((p, i, all) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] : [i / Math.max(1, all.length - 1), Number(p)])));
+  const xs = [].concat.apply([], norm.map((s) => s.map((p) => p[0])));
+  const ys = [].concat.apply([], norm.map((s) => s.map((p) => p[1])));
+  const xmin = Math.min.apply(null, xs);
+  const xmax = Math.max.apply(null, xs);
+  const ymin = Math.min(0, Math.min.apply(null, ys));
+  const ymax = Math.max.apply(null, ys);
+  const PX = { x0: A.x0 + 0.35, x1: A.x1 - 0.2, y0: A.y0 + 0.5, y1: A.y1 - 0.25 };
+  const map = (p) => [PX.x0 + (p[0] - xmin) / Math.max(1e-9, xmax - xmin) * (PX.x1 - PX.x0), PX.y1 - (p[1] - ymin) / Math.max(1e-9, ymax - ymin) * (PX.y1 - PX.y0)];
+  // L'autre d'abord (dessous), soi ensuite.
+  const order = series.map((s, i) => i).sort((a, b) => (series[a].mise_en_avant ? 1 : 0) - (series[b].mise_en_avant ? 1 : 0));
+  order.forEach((i, k) => {
+    const s = series[i];
+    const hl = !!s.mise_en_avant;
+    const pts = smoothPts(norm[i].map(map), 8);
+    c.add({ k: 'path', pts, stroke: hl ? c.P.accent : c.P.other, strokeW: H * 0.009 * 72, cap: 'rnd', join: 'round', name: 'Courbe ' + (k + 1), g: 'barres', sub: k });
+    const end = pts[pts.length - 1];
+    const lab = str(s.libelle);
+    if (lab) c.text({ x: end[0] - 2.4, y: end[1] - 0.42, w: 2.4, h: 0.32, text: lab, size: 16, min: 12, maxTotal: 2, wt: 'semi', color: hl ? c.P.fg : c.P.fg2, align: 'right', valign: 'bottom', font: 'texte', lh: K.titre, name: 'Série ' + (k + 1), g: 'barres', sub: k });
+  });
+  srcLine(c, P(6, 94, 88, 4));
+  c.groups = [SUR, G('titre', /\b(?:titres?|axes?|titles?)\b/), G('barres', /\b(?:courbes?|curves?|series?|lignes?|lines?)\b/, { multi: true })];
+};
+// Deux anneaux de part : piste à 15 %, arc sur la part fournie (gris pour l'autre, accent pour soi).
+function arcPts(cx, cy, r, a0, a1, n) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + (a1 - a0) * i / n;
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pts;
+}
+V['A6/anneaux'] = (c) => {
+  let parts = arr(c.t.barres).slice(0, 2);
+  while (parts.length < 2) parts.push({});
+  // L'autre à gauche, soi à droite.
+  parts = parts.slice().sort((a, b) => (a.mise_en_avant ? 1 : 0) - (b.mise_en_avant ? 1 : 0));
+  c.accentUsed = true;
+  [[14, 31], [39, 31]].forEach((pos, i) => {
+    const p = parts[i];
+    const hl = !!p.mise_en_avant;
+    const z = P(pos[0], pos[1], 21.5, 38);
+    const d = Math.min(z.w, z.h);
+    const cx = z.x + z.w / 2;
+    const cy = z.y + z.h / 2;
+    const tw = H * 0.008 * 1.6;
+    const r = d / 2 - tw;
+    c.ellipse({ x: cx - r, y: cy - r, w: 2 * r, h: 2 * r, line: mix(c.P.fg, c.P.bg, 0.85), lineW: tw * 72, name: 'Piste ' + (i + 1), g: 'barres', sub: i });
+    const v = Number(p.valeur);
+    const frac = isFinite(v) && v > 0 ? clamp(v > 1 ? v / 100 : v, 0, 1) : 0;
+    if (frac > 0) c.add({ k: 'path', pts: arcPts(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + frac * 2 * Math.PI, Math.max(8, Math.round(frac * 90))), stroke: hl ? c.P.accent : c.P.other, strokeW: tw * 72, cap: 'rnd', name: 'Part ' + (i + 1), g: 'barres', sub: i });
+    const val = p.etiquette !== undefined ? String(p.etiquette) : (frac > 0 ? '' : (c.lang === 'en' ? '[TO PROVIDE: share]' : '[À FOURNIR : part]'));
+    const vt = zt(c, { x: cx - r * 0.8, y: cy - 0.4, w: r * 1.6, h: 0.6 }, val || ' ', { size: 40, min: 24, maxTotal: 1, noWrap: true, color: hl ? c.P.accentTxt : c.P.fg2, g: 'barres', sub: i, name: 'Valeur ' + (i + 1) });
+    if (str(p.libelle)) zt(c, { x: cx - r * 0.8, y: vt.g.base + 0.12, w: r * 1.6, h: 0.3 }, p.libelle, { size: 14, min: 10, maxTotal: 2, font: 'texte', color: c.P.fg2, anchor: 'top', g: 'barres', sub: i, name: 'Nom ' + (i + 1) });
+  });
+  const zt0 = P(64, 40, 32, 20);
+  const t = zt(c, zt0, c.f('titre', 'grandeur'), { size: 40, min: 26, maxTotal: 3, align: 'left', g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: zt0.x, w: zt0.w, align: 'left' });
+  srcLine(c, P(6, 92, 88, 4));
+  c.groups = [SUR, G('titre', KW.titre), G('barres', /\b(?:anneaux?|rings?|parts?|barres?)\b/, { multi: true })];
+};
+// Frise des générations et saut de soi.
+V['A6/frise'] = (c) => {
+  const zt0 = P(6, 8.3, 88, 5);
+  const t = zt(c, zt0, c.f('titre', 'grandeur mesurée'), { size: 28, min: 20, maxTotal: 1, anchor: 'top', g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: zt0.x, w: zt0.w, align: 'center' });
+  c.accentUsed = true;
+  const axis = mix(c.P.fg, c.P.bg, 0.7);
+  const X0 = W * 0.127;
+  c.rect({ x: X0, y: H * 0.16, w: 0.02, h: H * 0.68, fill: axis, name: 'Axe vertical', g: 'titre' });
+  c.rect({ x: X0, y: H * 0.84 - 0.01, w: W * 0.743, h: 0.02, fill: axis, name: 'Axe horizontal', g: 'titre' });
+  const n = clamp(Number(c.t.generations) || arr(c.t.jalons).length || 5, 3, 6);
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([W * (0.17 + i * (0.66 / (n - 1 || 1))), H * (0.69 - i * 0.012)]);
+  c.add({ k: 'path', pts, stroke: c.P.other, strokeW: 1.5, name: 'Ligne des générations', g: 'barres' });
+  const gs = W * 0.035;
+  pts.forEach((p, i) => {
+    c.round({ x: p[0] - gs / 2, y: p[1] - gs / 2, w: gs, h: gs, fill: c.P.bg, line: c.P.other, lineW: 1.5, radius: gs * 0.2, name: 'Génération ' + (i + 1), g: 'barres' });
+    c.round({ x: p[0] - gs * 0.22, y: p[1] - gs * 0.22, w: gs * 0.44, h: gs * 0.44, line: c.P.other, lineW: 1, radius: gs * 0.06, name: 'Génération cœur ' + (i + 1), g: 'barres' });
+  });
+  const per = arr(c.t.periodes);
+  if (per.length) {
+    c.line({ text: str(per[0]), x: pts[0][0] - 0.6, w: 1.2, base: H * 0.895, size: scalePt(16, 'texte'), wt: 'regular', color: c.P.fg2, align: 'center', font: 'texte', name: 'Période début', g: 'barres' });
+    if (per[1]) c.line({ text: str(per[per.length - 1]), x: pts[n - 1][0] - 0.6, w: 1.2, base: H * 0.895, size: scalePt(16, 'texte'), wt: 'regular', color: c.P.fg2, align: 'center', font: 'texte', name: 'Période fin', g: 'barres' });
+  }
+  // La tuile de soi : carré sombre au liseré d'accent lumineux, son nom dedans.
+  const last = pts[n - 1];
+  const tile = { x: last[0] - W * 0.0365, y: H * 0.23, w: W * 0.073, h: W * 0.073 };
+  const glowB = grow(tile, 0.35, 0.35);
+  genImage(c, glowB, c.P.accent, alphaAround(0.55, { x: 0.35, y: 0.35, w: tile.w, h: tile.h }, tile.w * 0.18, 0.09, 0), 'Halo tuile', { g: 'chiffre', key: 'halotuile', ppi: 60 });
+  c.round({ x: tile.x, y: tile.y, w: tile.w, h: tile.h, fill: mix(c.T.fondSombre, '000000', 0.4), line: c.P.accent, lineW: 1.5, radius: tile.w * 0.18, name: 'Tuile de soi', g: 'chiffre' });
+  zt(c, grow(tile, -0.06, -0.06), str(c.t.nom) || ' ', { size: 16, min: 9, maxTotal: 2, font: 'texte', color: 'FFFFFF', g: 'chiffre', name: 'Nom de soi' });
+  c.rect({ x: last[0] - 0.012, y: tile.y + tile.h + 0.08, w: 0.024, h: last[1] - gs / 2 - (tile.y + tile.h + 0.16), fill: c.P.accent, name: 'Flèche', g: 'chiffre' });
+  c.add({ k: 'path', pts: [[last[0] - 0.07, tile.y + tile.h + 0.18], [last[0], tile.y + tile.h + 0.08], [last[0] + 0.07, tile.y + tile.h + 0.18]], stroke: c.P.accent, strokeW: 1.7, cap: 'rnd', join: 'round', name: 'Flèche pointe', g: 'chiffre' });
+  const ch = tv(c, 'chiffre') ? c.t.chiffre : (c.lang === 'en' ? '[TO PROVIDE: gap]' : '[À FOURNIR : écart]');
+  zt(c, { x: last[0] - 0.15 - 2.6, y: H * 0.45, w: 2.6, h: H * 0.094 }, ch, { size: 52, min: 28, maxTotal: 1, noWrap: true, align: 'right', color: c.P.accentTxt, g: 'chiffre', name: 'Écart' });
+  srcLine(c, P(6, 94, 88, 4));
+  c.groups = [SUR, G('titre', KW.titre), G('barres', /\b(?:generations?|jalons?|lignes?|frises?)\b/), G('chiffre', /\b(?:tuiles?|soi|fleches?|ecarts?|chiffres?|sauts?)\b/)];
+};
+// Tableau de rangs à logos, source toujours visible. Rien n'est dessiné à la place d'un rang.
+V['A6/classement'] = (c) => {
+  const zt0 = P(6, 11.9, 88, 5.8);
+  const t = zt(c, zt0, c.f('titre', 'classement'), { size: 32, min: 22, maxTotal: 1, anchor: 'top', g: 'titre', name: 'Titre' });
+  c.kicker(t.g, { x: zt0.x, w: zt0.w, align: 'center' });
+  const cols = arr(c.t.colonnes).slice(0, 3);
+  const rows = Math.min(8, Math.max(1, Math.max.apply(null, cols.map((k) => arr(k.logos).length).concat([arr(c.t.rangs).length, 1]))));
+  const pitch = H * 0.067;
+  const y0 = H * 0.29;
+  const centers = cols.length === 1 ? [0.51] : cols.length === 2 ? [0.42, 0.6] : [0.33, 0.51, 0.69];
+  for (let r = 0; r < rows; r++) {
+    const cy = y0 + (r + 0.5) * pitch;
+    const rang = arr(c.t.rangs)[r];
+    c.line({ text: rang !== undefined ? str(rang) : (c.lang === 'en' ? '[TO PROVIDE: rank]' : '[À FOURNIR : rang]'), x: W * 0.12, w: W * 0.09, base: cy + 0.06, size: scalePt(16, 'texte'), wt: 'semi', color: c.P.fg2, align: 'right', font: 'texte', name: 'Rang', g: 'logos' });
+    if (r < rows - 1) c.rect({ x: W * 0.17, y: cy + pitch / 2 - 0.004, w: W * 0.63, h: 0.008, fill: mix(c.P.fg, c.P.bg, 0.82), name: 'Filet', g: 'logos' });
+    cols.forEach((k, j) => {
+      const lg = arr(k.logos)[r];
+      if (!lg) return;
+      const logo = typeof lg === 'string' ? { nom: lg } : lg;
+      const box = { x: W * centers[j] - W * 0.08, y: cy - H * 0.017, w: W * 0.16, h: H * 0.034 };
+      const im = loadImg(c, logo.image);
+      if (im) putImage(c, im, fitRect(box, im.info, 'contain'), { name: 'Logo', g: 'logos' });
+      else c.line({ text: str(logo.nom) || c.f('_', 'logo'), x: box.x - 0.3, w: box.w + 0.6, base: cy + 0.06, size: scalePt(12, 'texte'), wt: 'semi', color: c.P.fg2, align: 'center', font: 'texte', name: 'Logo nom', g: 'logos' });
+    });
+  }
+  cols.forEach((k, j) => c.line({ text: str(k.periode) || (c.lang === 'en' ? '[TO PROVIDE: year]' : '[À FOURNIR : année]'), x: W * centers[j] - 0.8, w: 1.6, base: y0 + rows * pitch + 0.3, size: scalePt(14, 'texte'), wt: 'regular', color: c.P.fg2, align: 'center', font: 'texte', name: 'Période', g: 'logos' }));
+  if (c.sourceText) {
+    c.text({ x: W * 0.5, y: H * 0.94, w: W * 0.47, h: 0.25, text: c.sourceDisplay || c.sourceText, size: 9, min: 8, maxLines: 1, color: c.P.fg2, align: 'right', valign: 'top', font: 'texte', lh: K.titre, name: 'Source' });
+    c.sourceDone = true;
+  }
+};
+
+// A11 : schéma à bloc surligné. Le schéma fourni, ou un plan de blocs au trait (cases inégales,
+// sans inscription), avec le ou les blocs allumés : contour, intérieur éclairci, lueur douce.
+const PLAN_CELLS = {
+  lines: [
+    [0.5, 0, 0.5, 1], [0, 0.14, 0.5, 0.14], [0, 0.4, 0.5, 0.4], [0, 0.575, 0.5, 0.575], [0, 0.87, 0.5, 0.87],
+    [0.38, 0.14, 0.38, 0.4], [0.38, 0.575, 0.38, 0.87], [0.5, 0.24, 1, 0.24], [0.5, 0.59, 1, 0.59], [0.5, 0.8, 1, 0.8],
+    [0.75, 0.24, 0.75, 0.59], [0.66, 0.8, 0.66, 1]
+  ]
+};
+function schemaPlan(c, sq, spec, o) {
+  o = o || {};
+  const im = loadImg(c, spec);
+  if (im) {
+    putImage(c, im, fitRect(sq, im.info, 'contain'), { name: 'Schéma', g: 'visuel' });
+    return;
+  }
+  missingVisual(c, spec, 'interface', c.lang === 'en' ? 'diagram of the system' : 'schéma du système', { g: 'visuel' }, () => {
+    const lc = mix(c.P.fg, c.P.bg, 0.65);
+    c.round({ x: sq.x, y: sq.y, w: sq.w, h: sq.h, fill: mix(c.P.bg, c.P.fg, 0.04), line: lc, lineW: 0.75, radius: 0.04, name: 'Schéma plan', g: 'visuel' });
+    PLAN_CELLS.lines.forEach((l, i) => {
+      const x1 = sq.x + l[0] * sq.w;
+      const y1 = sq.y + l[1] * sq.h;
+      const x2 = sq.x + l[2] * sq.w;
+      const y2 = sq.y + l[3] * sq.h;
+      if (Math.abs(x1 - x2) < 1e-6) c.rect({ x: x1 - 0.004, y: y1, w: 0.008, h: y2 - y1, fill: lc, name: 'Schéma trait', g: 'visuel' });
+      else c.rect({ x: x1, y: y1 - 0.004, w: x2 - x1, h: 0.008, fill: lc, name: 'Schéma trait', g: 'visuel' });
+      void i;
+    });
+  });
+}
+function litBlock(c, b, i) {
+  const glowB = grow(b, 0.3, 0.3);
+  genImage(c, glowB, darkBg(c) ? c.P.fg : c.P.accent, alphaAround(darkBg(c) ? 0.22 : 0.3, { x: 0.3, y: 0.3, w: b.w, h: b.h }, 0.04, 0.09, 0), 'Lueur bloc ' + (i + 1), { g: 'lignes', sub: i, key: 'lueur', ppi: 40 });
+  c.round({ x: b.x, y: b.y, w: b.w, h: b.h, fill: mix(c.P.bg, c.P.fg, darkBg(c) ? 0.12 : 0.06), line: c.P.fg, lineW: 1.5, radius: 0.04, name: 'Bloc allumé ' + (i + 1), g: 'lignes', sub: i });
+}
+function systemName(c, z) {
+  const logo = loadImg(c, c.slide.logo_systeme || (c.T.logo ? { chemin: c.T.logo } : null));
+  const name = tv(c, 'titre');
+  if (name) zt(c, z, name, { size: 26, min: 14, maxTotal: 1, align: 'left', font: 'titre', g: 'visuel', name: 'Nom du système' });
+  else if (logo) putImage(c, logo, fitRect(z, logo.info, 'contain', 'left'), { name: 'Logo', g: 'visuel' });
+  else zt(c, z, c.lang === 'en' ? '[TO PROVIDE: name]' : '[À FOURNIR : nom]', { size: 26, min: 14, maxTotal: 1, align: 'left', g: 'visuel', name: 'Nom du système' });
+}
+function legend(c, bl, b, zt0, side, i) {
+  const right = side === 'droite';
+  const t = zt(c, zt0, str(bl.titre) || c.f('_', 'bloc'), { size: 18, min: 13, maxTotal: 1, font: 'texte', align: right ? 'right' : 'left', anchor: 'top', g: 'lignes', sub: i, name: 'Légende ' + (i + 1) });
+  const fy = t.g.base + 0.1;
+  const fx0 = right ? b.x + b.w : zt0.x;
+  const fx1 = right ? zt0.x + zt0.w : b.x;
+  c.rect({ x: Math.min(fx0, fx1), y: fy, w: Math.abs(fx1 - fx0), h: 0.0105, fill: mix(c.P.fg, c.P.bg, 0.55), name: 'Filet légende ' + (i + 1), g: 'lignes', sub: i });
+  const lines = arr(bl.lignes).slice(0, 5);
+  if (lines.length) zlist(c, { x: zt0.x, y: fy + 0.14, w: zt0.w, h: 0.6 }, lines, { size: 14, min: 10, wt: 'regular', color: c.P.fg2, align: right ? 'right' : 'left', anchor: 'top', k: 1.65, g: 'lignes', maxLines: 2, actif: 0 });
+  c.items.slice(-1).forEach((it) => { if (it.k === 'text') it.paras.forEach((p) => { p.sub = i; }); });
+}
+function blockZone(bl, def) {
+  const z = arr(bl && bl.zone);
+  return z.length === 4 ? P(z[0], z[1], z[2], z[3]) : def;
+}
+V['A11/legende-laterale'] = (c) => {
+  const sq = P(31, 16.5, 38, 67);
+  schemaPlan(c, sq, c.slide.image);
+  systemName(c, P(32.6, 18, 15, 4.7));
+  const right = c.t.cote === 'droite';
+  const bl = arr(c.t.blocs)[0] || {};
+  const b = blockZone(bl, right ? P(50.5, 50, 18, 26) : P(31.5, 55, 18.5, 28));
+  litBlock(c, b, 0);
+  legend(c, bl, b, right ? { x: W * 0.715, y: b.y, w: W * 0.24, h: 0.3 } : { x: W * 0.045, y: b.y, w: W * 0.24, h: 0.3 }, right ? 'droite' : 'gauche', 0);
+  c.groups = [G('visuel', KW.visuel), G('lignes', /\b(?:blocs?|blocks?|legendes?|captions?)\b/, { multi: true })];
+};
+V['A11/plusieurs-blocs'] = (c) => {
+  const sq = P(31, 16.5, 38, 67);
+  schemaPlan(c, sq, c.slide.image);
+  systemName(c, P(32.6, 18, 15, 4.7));
+  const defs = [[P(32, 26, 13.5, 17), { x: W * 0.05, w: W * 0.22 }, 'gauche'], [P(32, 55, 13.5, 20), { x: W * 0.05, w: W * 0.22 }, 'gauche'], [P(50, 17.5, 18.5, 15), { x: W * 0.73, w: W * 0.225 }, 'droite']];
+  arr(c.t.blocs).slice(0, 3).forEach((bl, i) => {
+    const b = blockZone(bl, defs[i][0]);
+    litBlock(c, b, i);
+    legend(c, bl, b, { x: defs[i][1].x, y: b.y - 0.05, w: defs[i][1].w, h: 0.3 }, defs[i][2], i);
+  });
+  c.groups = [G('visuel', KW.visuel), G('lignes', /\b(?:blocs?|blocks?|legendes?|captions?)\b/, { multi: true })];
+};
+V['A11/schema-chiffre'] = (c) => {
+  const sq = P(11, 16.5, 38, 67);
+  schemaPlan(c, sq, c.slide.image);
+  systemName(c, P(12.6, 18, 15, 4.7));
+  const bl = arr(c.t.blocs)[0] || {};
+  litBlock(c, blockZone(bl, P(11.5, 26, 37, 30)), 0);
+  const z = P(55, 37, 39, 16.2);
+  const h = heroNumber(c, z, { size: 90, min: 60 });
+  const lib = zt(c, { x: P(54, 0, 0, 0).x, y: h.g.base + 0.25 + descGap(c, h), w: P(0, 0, 41, 0).w, h: 0.4 }, c.f('libelle', 'libellé'), { size: 20, min: 14, maxTotal: 2, font: 'texte', anchor: 'top', g: 'libelle', name: 'Libellé' });
+  srcLine(c, { x: z.x, y: lib.g.base + 0.18, w: z.w, h: 0.3 }, { g: 'libelle' });
+  c.groups = [G('visuel', KW.visuel), G('lignes', /\b(?:blocs?|blocks?)\b/), G('chiffre', KW.chiffre), G('libelle', KW.libelle)];
+};
+V['A11/carte-annotee'] = (c) => {
+  const z = P(15, 26, 71, 46);
+  const im = loadImg(c, c.slide.image);
+  if (im) putImage(c, im, fitRect(z, im.info, 'contain'), { name: 'Vue de dessus', g: 'visuel' });
+  else {
+    missingVisual(c, c.slide.image, 'objet', c.lang === 'en' ? 'top view of the object' : 'vue de dessus détourée', { g: 'visuel' }, () => {
+      c.round({ x: z.x, y: z.y, w: z.w, h: z.h, fill: mix(c.P.bg, c.P.fg, 0.08), radius: 0.14, name: 'Schéma vue', g: 'visuel' });
+      [[0.06, 0.12, 0.2, 0.32], [0.3, 0.12, 0.14, 0.2], [0.5, 0.18, 0.12, 0.26], [0.68, 0.1, 0.24, 0.3], [0.06, 0.56, 0.3, 0.3], [0.4, 0.56, 0.1, 0.18], [0.56, 0.58, 0.18, 0.28], [0.8, 0.52, 0.12, 0.34]].forEach((q) => {
+        c.round({ x: z.x + z.w * q[0], y: z.y + z.h * q[1], w: z.w * q[2], h: z.h * q[3], fill: mix(c.P.bg, c.P.fg, 0.14), radius: 0.04, name: 'Schéma composant', g: 'visuel' });
+      });
+    });
+  }
+  const defs = [{ zone: [51, 40, 9, 13], haut: true }, { zone: [43, 59, 4.7, 5.3], haut: false }, { zone: [24, 36, 8, 10], haut: true }, { zone: [70, 56, 8, 10], haut: false }];
+  arr(c.t.annotations).slice(0, 6).forEach((a, i) => {
+    const an = typeof a === 'string' ? { texte: a } : a;
+    const d = defs[i % defs.length];
+    const zz = arr(an.zone).length === 4 ? arr(an.zone) : d.zone;
+    const b = P(zz[0], zz[1], zz[2], zz[3]);
+    const up = an.position ? normKey(an.position) !== 'bas' : d.haut;
+    c.round({ x: b.x, y: b.y, w: b.w, h: b.h, line: c.P.fg, lineW: 1, radius: 0.02, name: 'Cadre ' + (i + 1), g: 'lignes', sub: i });
+    const fx = b.x + b.w / 2;
+    const ly = up ? H * 0.19 : H * 0.88;
+    c.rect({ x: fx - 0.007, y: up ? ly + 0.05 : b.y + b.h, w: 0.014, h: up ? b.y - ly - 0.05 : ly - 0.25 - (b.y + b.h), fill: c.P.fg, name: 'Filet ' + (i + 1), g: 'lignes', sub: i });
+    c.line({ text: str(an.texte || an.titre), x: fx + 0.08, w: 2.4, base: up ? ly + 0.12 : ly, size: scalePt(18, 'texte'), wt: 'semi', align: 'left', font: 'texte', name: 'Étiquette ' + (i + 1), g: 'lignes', sub: i });
+  });
+  c.groups = [G('visuel', KW.visuel), G('lignes', /\b(?:etiquettes?|labels?|cadres?|annotations?|composants?)\b/, { multi: true })];
+};
+// Le système en carré lumineux : carré presque noir, liseré d'accent qui déborde en halo flou.
+V['A11/carre-halo'] = (c) => {
+  const s = Math.min(P(0, 0, 33.3, 0).w, P(0, 0, 0, 59).h);
+  const sq = { x: (W - s) / 2, y: (H - s) / 2, w: s, h: s };
+  const pad = W * 0.09;
+  const gb = grow(sq, pad, pad);
+  // Coins presque vifs (5 % du côté) : un composant, pas une icône d'app.
+  const rad = s * 0.05;
+  genImage(c, gb, c.P.accent, alphaAround(0.6, { x: pad, y: pad, w: s, h: s }, rad, 0.22, 0), 'Halo du carré', { g: 'visuel', key: 'carrehalo', ppi: 40 });
+  c.round({ x: sq.x, y: sq.y, w: s, h: s, fill: mix(c.T.fondSombre, '000000', 0.55), line: c.P.accent, lineW: 2.5, radius: rad, name: 'Carré', g: 'visuel' });
+  c.accentUsed = true;
+  const logo = loadImg(c, c.slide.image || (c.T.logo && !tv(c, 'titre') ? { chemin: c.T.logo } : null));
+  const zin = grow(sq, -s * 0.14, -s * 0.3);
+  if (logo) putImage(c, logo, fitRect(zin, logo.info, 'contain'), { name: 'Logo', g: 'visuel' });
+  else zt(c, zin, c.f('titre', 'nom'), { size: 52, min: 26, maxTotal: 2, color: 'FFFFFF', g: 'visuel', name: 'Nom' });
+};
+
+// A15 : murs d'abondance, qui débordent du cadre.
+function elems(c) {
+  return arr(c.t.elements).map((e) => (typeof e === 'string' ? { titre: e } : e || {}));
+}
+V['A15/vignettes'] = (c) => {
+  const els = elems(c);
+  const vw = W * 0.21;
+  const vh = H * 0.215;
+  const gx = W * 0.0125;
+  const gy = H * 0.022;
+  const rad = W * 0.012;
+  let k = 0;
+  for (let r = 0; r < 5; r++) {
+    const off = -((r % 3) * (vw + gx) / 3) - W * 0.03;
+    for (let col = 0; col < 6; col++) {
+      const x = off + col * (vw + gx);
+      const y = -H * 0.03 + r * (vh + gy) - H * 0.02;
+      if (x > W || y > H) continue;
+      const e = els.length ? els[k % els.length] : {};
+      const box = { x, y, w: vw, h: vh };
+      const im = loadImg(c, e.image);
+      if (im) putImage(c, im, fitRect(box, im.info, 'cover'), { clip: box, radius: rad, name: 'Vignette', g: 'tuiles' });
+      else {
+        const tone = 0.1 + ((k * 7) % 5) * 0.01;
+        c.round({ x, y, w: vw, h: vh, fill: mix(c.P.bg, c.P.fg, tone), radius: rad, name: 'Vignette', g: 'tuiles' });
+        pill(c, x + vw * 0.1, y + vh * 0.78, vw * (0.35 + ((k * 3) % 4) * 0.1), 0.06, mix(c.P.bg, c.P.fg, tone + 0.12), 'Vignette barre');
+        c.items[c.items.length - 1].g = 'tuiles';
+      }
+      k += 1;
+    }
+  }
+  if (!els.some((e) => loadImg(c, e.image))) registerMissing(c, null, 'tuile', c.lang === 'en' ? 'thumbnails of the catalogue' : 'vignettes du catalogue');
+  c.groups = [G('tuiles', /\b(?:grilles?|murs?|vignettes?|tuiles?|walls?|grids?)\b/)];
+};
+V['A15/icones'] = (c) => {
+  const els = elems(c);
+  const s = W * 0.075;
+  const gx = W * 0.013;
+  let k = 0;
+  const any = els.some((e) => loadImg(c, e.image));
+  for (let r = 0; r < 7; r++) {
+    const off = (r % 2 ? -(s + gx) / 2 : 0) - W * 0.02;
+    for (let col = 0; col < 13; col++) {
+      const x = off + col * (s + gx);
+      const y = -H * 0.04 + r * (s + gx);
+      if (x > W || y > H) continue;
+      const e = els.length ? els[k % els.length] : {};
+      const box = { x, y, w: s, h: s };
+      const im = loadImg(c, e.image);
+      if (im) putImage(c, im, fitRect(box, im.info, 'contain'), { name: 'Pastille', g: 'tuiles' });
+      else {
+        // Repli : des pastilles en nuances voisines de gris, chacune avec un pictogramme, pour qu'on
+        // lise un mur d'icônes (et non un carrelage) ; quelques-unes dans l'accent, très atténué.
+        const tone = mix(c.P.bg, c.P.fg, (darkBg(c) ? 0.2 : 0.14) + ((k * 5) % 5) * 0.035);
+        const fill = (k * 7) % 9 === 0 ? mix(tone, c.P.accent, 0.55) : tone;
+        c.round({ x, y, w: s, h: s, fill, radius: s * 0.22, grad2: { from: mix(fill, 'FFFFFF', 0.1), to: fill, ang: 90 }, name: 'Pastille', g: 'tuiles' });
+        drawGlyph(c, grow(box, -s * 0.3, -s * 0.3), k, { g: 'tuiles', color: mix(fill, readableOn(fill, '111111', 'FFFFFF'), 0.6) });
+      }
+      k += 1;
+    }
+  }
+  if (!any) registerMissing(c, null, 'icone', c.lang === 'en' ? 'icons of the services' : 'icônes des services');
+  c.groups = [G('tuiles', /\b(?:murs?|pastilles?|icones?|icons?|walls?)\b/)];
+};
+V['A15/mots'] = (c) => {
+  const els = elems(c).map((e) => str(e.titre)).filter(Boolean);
+  const two = !!c.t.deux_tons;
+  const rows = 9;
+  const pitch = H * 0.103;
+  const y0 = H * 0.07 + pitch * 0.5;
+  if (!els.length) {
+    // Repli : des barres arrondies de longueurs variées, en lignes justifiées.
+    const rnd = rng(11 + c.index);
+    for (let r = 0; r < rows; r++) {
+      const n = 3 + (r % 2);
+      const lens = [];
+      for (let i = 0; i < n; i++) lens.push(0.6 + rnd() * 1.4);
+      const tot = lens.reduce((a, b) => a + b, 0);
+      const gap = (W * 0.928 - tot) / (n - 1);
+      let x = W * 0.036;
+      lens.forEach((l) => {
+        pill(c, x, y0 + r * pitch - H * 0.008, l, H * 0.016, mix(c.P.bg, c.P.fg, 0.22 + rnd() * 0.08), 'Mot');
+        c.items[c.items.length - 1].g = 'tuiles';
+        x += l + gap;
+      });
+    }
+    registerMissing(c, null, 'tuile', c.lang === 'en' ? 'list of the labels' : 'liste des libellés');
+    c.groups = [G('tuiles', /\b(?:murs?|mots?|libelles?|walls?|words?)\b/)];
+    return;
+  }
+  let k = 0;
+  const size = scalePt(16, 'texte');
+  const gapW = textWidth('      ', size, true, 0, 'texte');
+  for (let r = 0; r < rows; r++) {
+    // Chaque ligne se remplit jusqu'à 88 % de la largeur (fiche : lignes justifiées d'un bord à l'autre).
+    const line = [];
+    let lw = 0;
+    for (let guard = 0; guard < 40; guard++) {
+      const wd = els[k % els.length];
+      const ww = textWidth(shownText(c, wd), size, true, trackFor('texte', size), 'texte');
+      if (line.length && lw + gapW + ww > W * 0.88) break;
+      line.push(wd);
+      lw += (line.length > 1 ? gapW : 0) + ww;
+      k += 1;
+    }
+    const runs = [];
+    line.forEach((wd, i) => {
+      if (i) runs.push({ t: '      ' });
+      c.para(wd, { font: 'texte' })[0].runs.forEach((rr) => runs.push(Object.assign({}, rr, { color: rr.marker ? undefined : (two && (r + i) % 2 ? c.P.accentTxt : c.P.fg2) })));
+    });
+    c.text({ x: W * 0.036, y: y0 + r * pitch - 0.2, w: W * 0.928, h: 0.4, paras: [{ runs, rel: 1, wt: 'semi', font: 'texte' }], size: 16, min: 11, maxLines: 1, wt: 'semi', align: 'center', valign: 'middle', font: 'texte', color: c.P.fg2, lh: K.titre, name: 'Mots ' + (r + 1), g: 'tuiles' });
+  }
+  if (two) c.accentUsed = true;
+  c.groups = [G('tuiles', /\b(?:murs?|mots?|libelles?|walls?|words?)\b/)];
+};
+V['A15/nuage'] = (c) => {
+  const els = elems(c).map((e) => str(e.titre)).filter(Boolean);
+  if (!els.length) {
+    V['A15/mots'](c);
+    return;
+  }
+  const rnd = rng(23 + c.index * 7);
+  const planes = [[13, 0.3], [22, 0.7], [36, 1]];
+  const placed = [];
+  els.slice(0, 16).forEach((wd, i) => {
+    const pl = planes[i % 3];
+    const size = scalePt(pl[0], 'texte');
+    const tw = textWidth(shownText(c, wd), size, true, trackFor('texte', size), 'texte') + 0.1;
+    const th = capIn('texte', size) * 2.2;
+    let best = null;
+    for (let tries = 0; tries < 40; tries++) {
+      const x = -0.4 + rnd() * (W + 0.8 - tw * 0.6);
+      const y = 0.2 + rnd() * (H - 0.4 - th);
+      const box = { x, y, w: tw, h: th };
+      const center = !tv(c, 'titre') || !inter(box, P(15, 38, 70, 16));
+      const free = placed.every((b) => !inter(grow(b, 0.1, 0.05), box));
+      if (center && free) {
+        best = box;
+        break;
+      }
+    }
+    if (!best) return;
+    placed.push(best);
+    const color = mix(c.P.fg, c.P.bg, 1 - pl[1]);
+    c.text({ x: best.x, y: best.y, w: best.w + 0.2, h: best.h, text: wd, size: pl[0], min: pl[0], maxLines: 1, wt: 'semi', color, align: 'left', valign: 'middle', font: 'texte', lh: K.titre, name: 'Mot', g: 'tuiles', noWrap: true });
+  });
+  if (tv(c, 'titre')) {
+    const z = P(10, 40, 80, 9.4);
+    zt(c, z, c.t.titre, { size: 52, min: 36, maxTotal: 1, g: 'titre', name: 'Nom' });
+  }
+  c.groups = [G('tuiles', /\b(?:nuages?|mots?|clouds?|words?)\b/), G('titre', KW.titre)];
+};
+V['A15/cartes-libelles'] = (c) => {
+  const els = elems(c);
+  const cw = W * 0.152;
+  const ch = H * 0.142;
+  const gx = W * 0.0125;
+  const gy = H * 0.021;
+  const card = darkBg(c) ? mix(c.P.bg, c.P.fg, 0.12) : 'FFFFFF';
+  let k = 0;
+  for (let r = 0; r < 7; r++) {
+    for (let col = 0; col < 6; col++) {
+      const x = W * 0.012 + col * (cw + gx);
+      const y = H * 0.022 + r * (ch + gy);
+      if (y > H) continue;
+      const e = els.length ? els[k % els.length] : {};
+      c.round({ x, y, w: cw, h: ch, fill: card, radius: W * 0.015, name: 'Carte', g: 'tuiles' });
+      const ib = { x: x + W * 0.014, y: y + H * 0.023, w: W * 0.033, h: W * 0.033 };
+      const im = loadImg(c, e.image);
+      if (im) putImage(c, im, fitRect(ib, im.info, 'contain'), { name: 'Carte icône', g: 'tuiles' });
+      else c.round({ x: ib.x, y: ib.y, w: ib.w, h: ib.h, fill: mix(card, c.P.accent, 0.22), radius: ib.w * 0.25, name: 'Carte icône', g: 'tuiles' });
+      if (str(e.titre)) c.text({ x: x + W * 0.014, y: y + ch * 0.55, w: cw - W * 0.028, h: ch * 0.4, text: e.titre, size: 9, min: 7, maxTotal: 2, wt: 'regular', color: c.P.fg, align: 'left', valign: 'top', font: 'texte', lh: K.titre, name: 'Carte libellé', g: 'tuiles' });
+      else {
+        pill(c, x + W * 0.014, y + ch * 0.62, (cw - W * 0.028) * 0.6, 0.05, mix(card, c.P.fg, 0.22), 'Carte barre');
+        c.items[c.items.length - 1].g = 'tuiles';
+        pill(c, x + W * 0.014, y + ch * 0.62 + 0.1, (cw - W * 0.028) * 0.4, 0.05, mix(card, c.P.fg, 0.16), 'Carte barre');
+        c.items[c.items.length - 1].g = 'tuiles';
+      }
+      k += 1;
+    }
+  }
+  c.groups = [G('tuiles', /\b(?:murs?|cartes?|cards?|walls?)\b/)];
+};
+// Mosaïque découpée par une forme simple (cœur ou cercle) : on garde les cases dont le centre
+// est dans la forme.
+V['A15/forme'] = (c) => {
+  const els = elems(c);
+  const z = P(30, 12, 40, 70);
+  const forme = normKey(c.t.forme) || 'coeur';
+  const cell = 0.22;
+  const gap = W * 0.008;
+  const inside = (u, v) => {
+    if (forme === 'cercle') return u * u + v * v <= 1;
+    const x = u * 1.16;
+    const y = -v * 1.12 + 0.12;
+    const q = x * x + y * y - 1;
+    return q * q * q - x * x * y * y * y <= 0;
+  };
+  const s = Math.min(z.w, z.h);
+  const cx = z.x + z.w / 2;
+  const cy = z.y + z.h / 2;
+  let k = 0;
+  for (let y = cy - s / 2; y < cy + s / 2; y += cell + gap) {
+    for (let x = cx - s / 2; x < cx + s / 2; x += cell + gap) {
+      const u = (x + cell / 2 - cx) / (s / 2);
+      const v = (y + cell / 2 - cy) / (s / 2);
+      if (!inside(u, v)) continue;
+      const e = els.length ? els[k % els.length] : {};
+      const box = { x, y, w: cell, h: cell };
+      const im = loadImg(c, e.image);
+      if (im) putImage(c, im, fitRect(box, im.info, 'cover'), { clip: box, radius: 0.03, name: 'Mosaïque', g: 'tuiles' });
+      else c.round({ x, y, w: cell, h: cell, fill: mix(c.P.bg, c.P.fg, 0.1 + ((k * 7) % 6) * 0.015), radius: 0.03, name: 'Mosaïque', g: 'tuiles' });
+      k += 1;
+    }
+  }
+  if (!els.some((e) => loadImg(c, e.image))) registerMissing(c, null, 'tuile', c.lang === 'en' ? 'thumbnails for the mosaic' : 'vignettes de la mosaïque');
+  c.groups = [G('tuiles', /\b(?:formes?|mosaiques?|coeurs?|shapes?)\b/)];
+};
+
+// A16 : logos monochromes à aire égale ; un logo manquant devient le nom en texte, jamais un dessin.
+function logoAt(c, lg, box, o) {
+  o = o || {};
+  const logo = typeof lg === 'string' ? { nom: lg } : (lg || {});
+  const im = loadImg(c, logo.image);
+  if (im) {
+    const a = im.info.w / im.info.h;
+    const area = o.area || 0.15;
+    let h = Math.sqrt(area / a);
+    let w = a * h;
+    if (w > box.w) {
+      w = box.w;
+      h = w / a;
+    }
+    if (h > box.h) {
+      h = box.h;
+      w = h * a;
+    }
+    putImage(c, im, { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h }, { name: 'Logo', g: 'logos', sub: o.sub });
+    return;
+  }
+  const nm = str(logo.nom) || c.f('_', 'logo');
+  c.text({ x: box.x - 0.15, y: box.y, w: box.w + 0.3, h: box.h, text: nm, size: o.nameSize || 20, min: Math.min(o.nameSize || 20, 9), maxTotal: 2, wt: 'semi', color: o.color || c.P.fg2, align: 'center', valign: 'middle', font: 'texte', lh: K.titre, name: 'Logo nom', g: 'logos', sub: o.sub });
+}
+// Aucun logo donné : un seul marqueur, au centre (jamais de logo dessiné).
+function noLogos(c) {
+  if (arr(c.t.logos).length) return false;
+  zt(c, P(10, 42, 80, 16), c.f('logos', 'logos'), { size: 32, min: 20, maxTotal: 1, font: 'texte', g: 'logos', name: 'Logos' });
+  return true;
+}
+function logosHead(c, topY) {
+  if (!tv(c, 'titre')) return;
+  c.line({ text: c.t.titre, x: M, w: FULL_W, base: topY - 0.3, size: scalePt(24, 'texte'), wt: 'regular', color: c.P.fg2, align: 'center', font: 'texte', name: 'Titre', g: 'titre' });
+}
+V['A16/grille'] = (c) => {
+  if (noLogos(c)) return;
+  const logos = arr(c.t.logos).slice(0, 20);
+  const n = Math.max(1, logos.length);
+  const rows = n > 15 ? 4 : n > 10 ? 3 : n > 5 ? 2 : 1;
+  const rowsY = { 1: [50], 2: [38, 62], 3: [28, 50, 72], 4: [17, 39, 61, 82.7] }[rows];
+  const colsX = [14.5, 32.3, 50, 67.7, 85.3];
+  const shift = tv(c, 'titre') ? 4 : 0;
+  logos.forEach((lg, i) => {
+    const r = Math.floor(i / 5);
+    const inRow = Math.min(5, n - r * 5);
+    const xs = inRow === 5 ? colsX : colsX.slice(0, inRow).map((x, j) => 50 + (j - (inRow - 1) / 2) * 17.7);
+    const b = P(xs[i % 5] - 5.5, rowsY[r] + shift - 4, 11, 8);
+    logoAt(c, lg, b, { sub: i });
+  });
+  logosHead(c, P(0, rowsY[0] + shift - 4, 0, 0).y);
+};
+V['A16/ligne'] = (c) => {
+  if (noLogos(c)) return;
+  const logos = arr(c.t.logos).slice(0, 4);
+  const n = Math.max(1, logos.length);
+  const cs = { 1: [50], 2: [32, 68], 3: [18, 50, 82], 4: [17, 39, 61, 83] }[n];
+  const lw = n === 4 ? 17 : 20;
+  logos.forEach((lg, i) => logoAt(c, lg, P(cs[i] - lw / 2, 45, lw, 10), { sub: i, area: 0.4, nameSize: 28 }));
+  logosHead(c, P(0, 45, 0, 0).y);
+};
+V['A16/logo-seul'] = (c) => {
+  const lg = arr(c.t.logos)[0] || { nom: tv(c, 'titre') || c.f('_', 'logo') };
+  logoAt(c, lg, P(27, 37, 46, 26), { area: 3, nameSize: 56, color: c.P.fg });
+};
+V['A16/mur-dense'] = (c) => {
+  if (noLogos(c)) return;
+  const logos = arr(c.t.logos).slice(0, 84);
+  const cols = logos.length > 60 ? 12 : logos.length > 40 ? 10 : 8;
+  const rows = Math.ceil(logos.length / cols);
+  const pitchY = H * 0.124;
+  const pitchX = W * 0.92 / cols;
+  const y0 = H / 2 - (rows - 1) * pitchY / 2;
+  logos.forEach((lg, i) => {
+    const r = Math.floor(i / cols);
+    const col = i % cols;
+    const b = { x: W * 0.04 + col * pitchX + (pitchX - W * 0.07) / 2, y: y0 + r * pitchY - H * 0.0225, w: W * 0.07, h: H * 0.045 };
+    logoAt(c, lg, b, { sub: i, area: 0.06, nameSize: 11 });
+  });
+};
+V['A16/pastilles'] = (c) => {
+  if (noLogos(c)) return;
+  const logos = arr(c.t.logos).slice(0, 30);
+  const d = W * 0.073;
+  const pitch = W * 0.084;
+  const per = logos.length > 27 ? 10 : 9;
+  const rows = Math.ceil(logos.length / per) || 1;
+  const y0 = H / 2 - (rows - 1) * pitch / 2;
+  logos.forEach((lg, i) => {
+    const logo = typeof lg === 'string' ? { nom: lg } : lg;
+    const r = Math.floor(i / per);
+    const col = i % per;
+    const inRow = Math.min(per, logos.length - r * per);
+    const x = W / 2 + (col - (inRow - 1) / 2) * pitch + (r % 2 ? pitch / 4 : -pitch / 4) - d / 2;
+    const y = y0 + r * pitch - d / 2;
+    const fill = hex(logo.couleur, null, 'couleur', null) || c.P.fg2;
+    c.ellipse({ x, y, w: d, h: d, fill, name: 'Pastille', g: 'logos', sub: i });
+    const im = loadImg(c, logo.image);
+    const inner = grow({ x, y, w: d, h: d }, -d * 0.22, -d * 0.22);
+    if (im) putImage(c, im, fitRect(inner, im.info, 'contain'), { name: 'Logo', g: 'logos', sub: i });
+    else c.text({ x: x + 0.04, y, w: d - 0.08, h: d, text: str(logo.nom) || c.f('_', 'logo'), size: 9, min: 7, maxTotal: 2, wt: 'semi', color: readableOn(fill, '111111', 'FFFFFF'), align: 'center', valign: 'middle', font: 'texte', lh: K.titre, name: 'Logo nom', g: 'logos', sub: i });
+  });
+};
+V['A16/soi-au-centre'] = (c) => {
+  const logos = arr(c.t.logos).slice(0, 16);
+  const rowsN = [3, 4, 3, 4, 3];
+  const ys = [12, 30.5, 51, 71, 89];
+  let k = 0;
+  rowsN.forEach((n, r) => {
+    for (let j = 0; j < n; j++) {
+      const mid = r === 2 && j === 1;
+      const x = 50 + (j - (n - 1) / 2) * 18;
+      const b = P(x - 6, ys[r] - 4.5, 12, 9);
+      if (mid) {
+        const own = c.T.logo ? { nom: c.deck.theme && c.deck.theme.nom, image: c.T.logo } : { nom: (c.deck.theme && c.deck.theme.nom) || c.f('_', 'logo') };
+        logoAt(c, own, b, { sub: 99, color: c.P.fg });
+        continue;
+      }
+      if (k < logos.length) logoAt(c, logos[k], b, { sub: k });
+      k += 1;
+    }
+  });
+  c.groups = [G('logos', KW.logos, { multi: false })];
+};
+
+// ---------------------------------------------------------------------------
+// Récap et conversion : A14 (bento), A19 (prix), A20 (disponibilité), FIN, COLORIS, FRISE
+// ---------------------------------------------------------------------------
+// Grilles des bentos (fiche), en % du cadre : colonnes, rangées et types de cases autour du centre.
+const BENTO = {
+  nom: {
+    cols: [[1, 28.6], [30.5, 39], [70.4, 28.6]], rows: [[1.7, 31], [34.3, 31.4], [67.3, 31]],
+    cells: [[0, 0, 'capture'], [1, 0, 'icone'], [2, 0, 'photo'], [0, 1, 'capture'], [2, 1, 'mot'], [0, 2, 'icone'], [1, 2, 'capture'], [2, 2, 'icone']]
+  },
+  produit: {
+    // Rangées du haut et du bas en quatre cases ; colonne gauche et droite de la rangée du milieu.
+    cols4: [[1, 24], [25.9, 23.7], [50.5, 23.7], [75, 24]], mid: [[1, 24], [25.9, 48.2], [75, 24]], rows: [[1.7, 23], [26.3, 47.4], [75.3, 23]]
+  }
+};
+const BENTO_TYPES = {
+  'produit-au-centre': ['icone', 'chiffre', 'capture', 'photo', 'capture', 'mot', 'mot', 'chiffre', 'icone', 'icone'],
+  'mot-geant-et-produit': ['photo', 'matiere', 'chiffre', 'photo', 'coloris', 'photo', 'mot', 'capture', 'icone', 'icone'],
+  'tuiles-chiffres': ['chiffre', 'chiffre', 'chiffre', 'icone', 'photo', 'chiffre', 'mot', 'icone', 'icone', 'halo'],
+  'theme-et-matieres': ['coloris', 'mot', 'mot', 'matiere', 'matiere', 'matiere', 'matiere', 'liste', 'icone', 'mot']
+};
+// Le contenu d'une tuile : son type (donné, ou celui de la case), son visuel et ses mots.
+// Visuel d'une tuile qui manque : une seule consigne par bento quand aucun chemin n'est donné.
+function tileMissing(c, spec, kind, label, g, draw) {
+  if (c.imageSpec(spec) && c.imageSpec(spec).chemin) {
+    missingVisual(c, spec, kind, label, g, draw);
+    return;
+  }
+  (c._tuilesSans = c._tuilesSans || []).push(label);
+  const ph = { id: c.phs.length, name: (c.L.cap[kind] || c.L.cap.tuile) + (label ? ' · ' + shortLabel(label, 6) : ''), kind, g: g.g, sub: g.sub };
+  c.phs.push(ph);
+  const prev = c.curPh;
+  c.curPh = ph.id;
+  try {
+    draw();
+  } finally {
+    c.curPh = prev;
+  }
+}
+function tilesMissingNote(c) {
+  const l = uniq(c._tuilesSans || []);
+  if (!l.length) return;
+  c.missing.push({ kind: 'tuile', attendu: (c.lang === 'en' ? 'visuals of the tiles: ' : 'visuels des tuiles : ') + l.join(', '), chemin: '', brief: (BRIEF[c.lang] || BRIEF.fr).tuile });
+  c.warn('Tuiles sans visuel (' + l.join(', ') + ') : repli dessiné.');
+}
+function bentoTile(c, b, tile, slotType, i, o) {
+  o = o || {};
+  const g = { g: 'tuiles', sub: i };
+  const rad = Math.min(VS.tuile.rayon, 0.25 * Math.min(b.w, b.h));
+  const type = normKey(tile.type) || (tile.chiffre ? 'chiffre' : tile.lignes ? 'liste' : slotType);
+  const surface = c.P.surface;
+  const label = str(tile.titre);
+  const smallLabel = (txt, zy, zh) => {
+    if (!txt) return;
+    c.text(Object.assign({ x: b.x + b.w * 0.06, y: zy, w: b.w * 0.88, h: zh, text: txt, size: VS.tuile.libelle, min: 8, maxTotal: 2, wt: 'regular', color: c.P.fg2, align: 'center', valign: 'middle', font: 'texte', lh: K.titre, name: 'Libellé tuile ' + (i + 1) }, g));
+  };
+  if (type === 'photo' || type === 'matiere') {
+    const im = loadImg(c, tile.image);
+    const white = type === 'photo';
+    if (im) {
+      putImage(c, im, fitRect(b, im.info, 'cover'), Object.assign({ clip: b, radius: rad, name: type === 'photo' ? 'Photo tuile' : 'Matière tuile' }, g));
+      if (white && label) gradientVeil(c, { x: b.x, y: b.y + b.h * 0.45, w: b.w, h: b.h * 0.55 }, 0.5, 'bas', g);
+    } else {
+      tileMissing(c, tile.image, 'tuile', label || (type === 'photo' ? 'photo' : (c.lang === 'en' ? 'material' : 'matière')), g, () => {
+        if (type === 'photo') drawPhotoSoft(c, b, Object.assign({ radius: rad, base: mix(surface, c.P.fg, 0.04) }, g));
+        else c.round(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill: mix(surface, darkBg(c) ? '000000' : c.P.fg, 0.07), radius: rad, name: 'Schéma matière' }, g));
+      });
+    }
+    if (label) {
+      if (white) c.text(Object.assign({ x: b.x + b.w * 0.07, y: b.y + b.h * 0.62, w: b.w * 0.86, h: b.h * 0.32, text: label, size: 20, min: 11, maxTotal: 2, wt: 'semi', color: im ? 'FFFFFF' : c.P.fg, align: 'left', valign: 'bottom', font: 'texte', lh: K.titre, name: 'Titre tuile ' + (i + 1) }, g));
+      else zt(c, grow(b, -b.w * 0.08, -b.h * 0.2), label, Object.assign({ size: 24, min: 12, maxTotal: 2, font: 'texte', color: im ? 'FFFFFF' : c.P.fg, name: 'Titre tuile ' + (i + 1) }, g));
+    }
+    return;
+  }
+  if (type === 'capture') {
+    // La capture sort du haut de la tuile (coupée par son bord), le libellé dessous.
+    const cap = { x: b.x + b.w * 0.14, y: b.y - b.h * 0.1, w: b.w * 0.72, h: b.h * 0.84 };
+    const im = loadImg(c, tile.image);
+    if (im) putImage(c, im, fitRect(cap, im.info, 'cover', undefined, 'top'), Object.assign({ clip: inter(cap, b), radius: 0.06, name: 'Capture tuile' }, g));
+    else {
+      tileMissing(c, tile.image, 'interface', label || (c.lang === 'en' ? 'screenshot' : 'capture'), g, () => {
+        const start = c.items.length;
+        const C = schemaColors(c);
+        if (cap.h > cap.w * 1.15) drawScreenPortrait(c, cap, C, 0.08, { hi: 1 });
+        else drawWindow(c, cap, Object.assign({}, C, { shadow: false }), rng(5 + i), ['liste', 'document', 'tableau'][i % 3]);
+        clipItems(c, start, { x: b.x, y: b.y, w: b.w, h: b.h * 0.78 });
+      });
+    }
+    smallLabel(label, b.y + b.h * 0.8, b.h * 0.17);
+    return;
+  }
+  if (type === 'icone' || type === 'halo') {
+    const s = Math.min(b.w, b.h) * (type === 'halo' ? 0.5 : 0.36);
+    const ib = { x: b.x + (b.w - s) / 2, y: b.y + b.h * 0.42 - s / 2, w: s, h: s };
+    if (type === 'halo') {
+      const gb = grow(ib, s * 0.6, s * 0.6);
+      genImage(c, gb, c.P.accent, alphaAround(0.5, { x: s * 0.6, y: s * 0.6, w: s, h: s }, s * 0.22, s * 0.18, 0), 'Halo tuile', Object.assign({ key: 'halotuile2', ppi: 50 }, g));
+    }
+    const im = loadImg(c, tile.image);
+    if (im) putImage(c, im, fitRect(ib, im.info, 'contain'), Object.assign({ name: 'Icône tuile' }, g));
+    else if (type === 'halo') c.round(Object.assign({ x: ib.x, y: ib.y, w: s, h: s, fill: mix(c.T.fondSombre, '000000', 0.3), line: c.P.accent, lineW: 1.5, radius: s * 0.22, name: 'Symbole' }, g));
+    else tileMissing(c, tile.image, 'icone', label || (c.lang === 'en' ? 'icon' : 'icône'), g, () => drawGlyph(c, ib, i, g));
+    smallLabel(label, b.y + b.h * 0.78, b.h * 0.18);
+    return;
+  }
+  if (type === 'coloris') {
+    const cols = arr(tile.coloris).length ? arr(tile.coloris) : [{}, {}, {}];
+    const n = Math.min(4, cols.length);
+    const sw = b.w * 0.8 / n;
+    cols.slice(0, n).forEach((col, k) => {
+      const hx = hex(col.hex, null, 'coloris', null);
+      drawSilhouette(c, { x: b.x + b.w * 0.1 + k * sw + sw * 0.15, y: b.y + b.h * 0.12, w: sw * 0.7, h: b.h * 0.58 }, Object.assign({ exact: true, fill: hx || undefined, ton: hx ? 0 : k * 0.05, ombre: false, halo: false }, g));
+    });
+    smallLabel(label, b.y + b.h * 0.76, b.h * 0.2);
+    return;
+  }
+  if (type === 'liste') {
+    const lines = arr(tile.lignes).length ? arr(tile.lignes) : [label];
+    const paras = [];
+    lines.slice(0, 4).forEach((l) => c.para(l, { wt: 'semi', font: 'texte', gapK: 0.6 }).forEach((p) => paras.push(p)));
+    c.text(Object.assign({ x: b.x + b.w * 0.1, y: b.y + b.h * 0.12, w: b.w * 0.8, h: b.h * 0.76, paras, size: 16, min: 9, maxTotal: 6, wt: 'semi', align: 'left', valign: 'middle', font: 'texte', lh: K.titre, name: 'Liste tuile ' + (i + 1) }, g));
+    return;
+  }
+  if (type === 'chiffre') {
+    const paras = [];
+    if (tile.mention) c.para(tile.mention, { pt: VS.tuile.libelle, wt: 'regular', font: 'texte', color: c.P.fg2, gap: 0.02 }).forEach((p) => paras.push(p));
+    c.para(tile.chiffre || (c.lang === 'en' ? '[TO PROVIDE: figure]' : '[À FOURNIR : chiffre]'), { wt: 'semi', font: 'titre', color: c.P.accentTxt, gap: 0.04 }).forEach((p) => paras.push(p));
+    if (label) c.para(label, { pt: VS.tuile.libelle, wt: 'regular', font: 'texte', color: c.P.fg2 }).forEach((p) => paras.push(p));
+    c.text(Object.assign({ x: b.x + b.w * 0.06, y: b.y + b.h * 0.08, w: b.w * 0.88, h: b.h * 0.84, paras, size: 48, min: 20, maxTotal: 4, wt: 'semi', align: 'center', valign: 'middle', font: 'titre', lh: K.titre, name: 'Chiffre tuile ' + (i + 1) }, g));
+    return;
+  }
+  // Mot : petit surtitre facultatif, le mot en accent.
+  const paras = [];
+  if (tile.surtitre) c.para(tile.surtitre, { pt: VS.tuile.libelle, wt: 'regular', font: 'texte', color: c.P.fg2, gap: 0.05 }).forEach((p) => paras.push(p));
+  c.para(label || tile.texte || (c.lang === 'en' ? '[TO PROVIDE: tile]' : '[À FOURNIR : tuile]'), { wt: 'semi', font: 'titre', color: c.P.accentTxt }).forEach((p) => paras.push(p));
+  c.text(Object.assign({ x: b.x + b.w * 0.08, y: b.y + b.h * 0.1, w: b.w * 0.84, h: b.h * 0.8, paras, size: 24, min: 12, maxTotal: 4, wt: 'semi', align: 'center', valign: 'middle', font: 'titre', lh: K.titre, balance: true, name: 'Mot tuile ' + (i + 1) }, g));
+}
+// Le bento occupe tout le cadre : quand la source s'affiche sur la slide, la rangée du bas s'arrête
+// à 94 % H et la source passe dessous, au lieu de recouvrir les libellés des tuiles.
+function bentoRows(c, rows) {
+  if (!c.sourceOnSlide || c.sourceDone) return rows;
+  const out = rows.map((r) => r.slice());
+  const last = out[out.length - 1];
+  last[1] = Math.max(10, 94.2 - last[0]);
+  return out;
+}
+// Bento au nom central : grille 3 × 3 de la fiche, tuile centrale en aplat d'accent. Moins de
+// 8 tuiles : des cases fusionnent (mêmes fusions que le bento d'origine), jamais de trou.
+V['A14/nom-au-centre'] = (c) => {
+  const B = Object.assign({}, BENTO.nom, { rows: bentoRows(c, BENTO.nom.rows) });
+  let tiles = arr(c.t.tuiles).slice(0, 8).map((t) => (typeof t === 'string' ? { titre: t } : t || {}));
+  while (tiles.length < 4) tiles.push({ titre: c.lang === 'en' ? '[TO PROVIDE: tile]' : '[À FOURNIR : tuile]' });
+  const n = tiles.length;
+  const cell = (col, row, cs, rs) => {
+    const x = B.cols[col][0];
+    const y = B.rows[row][0];
+    const xe = B.cols[col + (cs || 1) - 1][0] + B.cols[col + (cs || 1) - 1][1];
+    const ye = B.rows[row + (rs || 1) - 1][0] + B.rows[row + (rs || 1) - 1][1];
+    return P(x, y, xe - x, ye - y);
+  };
+  const LAY = {
+    8: B.cells,
+    7: [[0, 0, 'capture', 1, 2], [1, 0, 'icone'], [2, 0, 'photo'], [2, 1, 'mot'], [0, 2, 'icone'], [1, 2, 'capture'], [2, 2, 'icone']],
+    6: [[0, 0, 'capture', 1, 2], [1, 0, 'icone'], [2, 0, 'photo', 1, 2], [0, 2, 'icone'], [1, 2, 'capture'], [2, 2, 'mot']],
+    5: [[0, 0, 'capture', 1, 2], [1, 0, 'icone'], [2, 0, 'photo', 1, 2], [0, 2, 'mot', 2, 1], [2, 2, 'icone']],
+    4: [[0, 0, 'capture', 1, 3], [1, 0, 'icone'], [2, 0, 'photo', 1, 3], [1, 2, 'mot']]
+  };
+  const center = cell(1, 1);
+  const rad = (b) => Math.min(VS.tuile.rayon, 0.25 * Math.min(b.w, b.h));
+  const onAcc = onAccent(c.P.accent, c.T.fondSombre);
+  c.round({ x: center.x, y: center.y, w: center.w, h: center.h, fill: c.P.accent, radius: rad(center), name: 'Tuile centrale', g: 'centre' });
+  const ct = zt(c, grow(center, -0.2, -0.15), c.f('titre', 'nom'), { size: 54, min: 30, maxTotal: 2, color: onAcc, g: 'centre', name: 'Titre central' });
+  c.kicker(ct.g, { x: center.x + 0.2, w: center.w - 0.4, align: 'center', color: onAcc, wt: 'semi', g: 'centre' });
+  LAY[n].forEach((L, i) => {
+    const b = cell(L[0], L[1], L[3], L[4]);
+    c.round({ x: b.x, y: b.y, w: b.w, h: b.h, fill: c.P.surface, radius: rad(b), name: 'Tuile ' + (i + 1), g: 'tuiles', sub: i });
+    bentoTile(c, b, tiles[i], L[2], i);
+  });
+  tilesMissingNote(c);
+  srcLine(c, { x: M, y: H - 0.3, w: FULL_W, h: 0.28 });
+};
+// Bentos à dix cases autour d'un centre (produit, mot géant, chiffres, thème). Moins de 10 tuiles :
+// les cases des rangées du haut et du bas fusionnent deux à deux.
+function bento10(c, variant, drawCenter) {
+  const B = Object.assign({}, BENTO.produit, { rows: bentoRows(c, BENTO.produit.rows) });
+  const types = BENTO_TYPES[variant];
+  let tiles = arr(c.t.tuiles).slice(0, 10).map((t) => (typeof t === 'string' ? { titre: t } : t || {}));
+  while (tiles.length < 4) tiles.push({ titre: c.lang === 'en' ? '[TO PROVIDE: tile]' : '[À FOURNIR : tuile]' });
+  const n = tiles.length;
+  // Cases : haut (4), milieu gauche, milieu droit, bas (4) ; fusions selon n.
+  let top = [[0], [1], [2], [3]];
+  let bottom = [[0], [1], [2], [3]];
+  const merges = [['b', 1], ['t', 1], ['b', 0], ['t', 0], ['b', 0], ['t', 0]];
+  let count = 10;
+  for (const [row, k] of merges) {
+    if (count <= n) break;
+    const arrR = row === 't' ? top : bottom;
+    if (arrR.length > k + 1) {
+      arrR.splice(k, 2, arrR[k].concat(arrR[k + 1]));
+      count -= 1;
+    }
+  }
+  top = top.slice();
+  bottom = bottom.slice();
+  const rc = (cols, row) => {
+    const x = B.cols4[cols[0]][0];
+    const last = B.cols4[cols[cols.length - 1]];
+    return P(x, B.rows[row][0], last[0] + last[1] - x, B.rows[row][1]);
+  };
+  const slots = [];
+  top.forEach((cs) => slots.push({ b: rc(cs, 0), type: types[cs[0]] }));
+  slots.push({ b: P(B.mid[0][0], B.rows[1][0], B.mid[0][1], B.rows[1][1]), type: types[4] });
+  slots.push({ b: P(B.mid[2][0], B.rows[1][0], B.mid[2][1], B.rows[1][1]), type: types[5] });
+  bottom.forEach((cs) => slots.push({ b: rc(cs, 2), type: types[6 + cs[0]] }));
+  const center = P(B.mid[1][0], B.rows[1][0], B.mid[1][1], B.rows[1][1]);
+  const rad = (b) => Math.min(VS.tuile.rayon, 0.25 * Math.min(b.w, b.h));
+  drawCenter(center, rad(center));
+  slots.forEach((s, i) => {
+    c.round({ x: s.b.x, y: s.b.y, w: s.b.w, h: s.b.h, fill: c.P.surface, radius: rad(s.b), name: 'Tuile ' + (i + 1), g: 'tuiles', sub: i });
+    bentoTile(c, s.b, tiles[i] || {}, s.type, i);
+  });
+  tilesMissingNote(c);
+  srcLine(c, { x: M, y: H - 0.3, w: FULL_W, h: 0.28 });
+}
+function centerProduct(c, center, rad, o) {
+  o = o || {};
+  c.round({ x: center.x, y: center.y, w: center.w, h: center.h, fill: o.fill || c.P.surface, radius: rad, name: 'Tuile centrale', g: 'centre' });
+  const pz = P(31.7, 29.6, 36.6, 40.8);
+  const spec = c.slide.image;
+  const im = loadImg(c, spec);
+  if (im) {
+    const r = fitRect(pz, im.info, 'contain');
+    contactShadow(c, r, { g: 'centre' });
+    putImage(c, im, r, { name: 'Produit', g: 'centre' });
+  } else {
+    missingVisual(c, spec, 'objet', c.lang === 'en' ? 'cut-out product' : 'produit détouré', { g: 'centre' }, () => {
+      drawSilhouette(c, { x: pz.x + pz.w * 0.3, y: pz.y + pz.h * 0.04, w: pz.w * 0.4, h: pz.h * 0.92 }, { g: 'centre', halo: false });
+    });
+  }
+}
+V['A14/produit-au-centre'] = (c) => bento10(c, 'produit-au-centre', (center, rad) => centerProduct(c, center, rad));
+V['A14/tuiles-chiffres'] = (c) => bento10(c, 'tuiles-chiffres', (center, rad) => centerProduct(c, center, rad));
+V['A14/mot-geant-et-produit'] = (c) => bento10(c, 'mot-geant-et-produit', (center, rad) => {
+  c.round({ x: center.x, y: center.y, w: center.w, h: center.h, fill: mix(c.P.surface, '000000', 0.25), radius: rad, name: 'Tuile centrale', g: 'centre' });
+  c.accentUsed = true;
+  const word = c.f('titre', 'mot');
+  zt(c, P(28.3, 31, 43.4, 23.7), word, { size: 84, min: 54, maxTotal: 1, noWrap: true, color: c.P.accentTxt, g: 'centre', name: 'Mot géant' });
+  const pz = P(32.6, 45.3, 34.7, 40);
+  const im = loadImg(c, c.slide.image);
+  if (im) putImage(c, im, fitRect(pz, im.info, 'contain', undefined, 'top'), { clip: center, name: 'Produit', g: 'centre' });
+  else if (c.slide.image) registerMissing(c, c.slide.image, 'objet', c.lang === 'en' ? 'cut-out product' : 'produit détouré');
+});
+V['A14/theme-et-matieres'] = (c) => bento10(c, 'theme-et-matieres', (center, rad) => {
+  c.round({ x: center.x, y: center.y, w: center.w, h: center.h, fill: c.P.surface, radius: rad, name: 'Tuile centrale', g: 'centre' });
+  const iz = P(27.3, 29.1, 25.1, 41.7);
+  const im = loadImg(c, c.slide.image);
+  if (im) putImage(c, im, fitRect(iz, im.info, 'cover'), { clip: iz, radius: 0.12, name: 'Image du thème', g: 'centre' });
+  else missingVisual(c, c.slide.image, 'photo', c.lang === 'en' ? 'photo of the theme' : 'photo du thème', { g: 'centre' }, () => drawPhotoSoft(c, iz, { g: 'centre', radius: 0.12 }));
+  zt(c, P(53.9, 36.7, 18.3, 26.5), c.f('titre', 'thème'), { size: 28, min: 16, maxTotal: 3, g: 'centre', name: 'Thème' });
+});
+V['A14/grille-icones'] = (c) => {
+  let tiles = arr(c.t.tuiles).slice(0, 12).map((t) => (typeof t === 'string' ? { titre: t } : t || {}));
+  if (!tiles.length) tiles = [{}, {}, {}, {}, {}, {}];
+  if (!tiles.some((t) => loadImg(c, t.image))) registerMissing(c, null, 'icone', c.lang === 'en' ? 'one icon per new feature' : 'une icône par nouveauté');
+  const n = Math.max(1, tiles.length);
+  const perRow = n > 6 ? Math.ceil(n / 2) : n;
+  const rows = n > 6 ? 2 : 1;
+  const s = Math.min(W * 0.096, H * 0.17);
+  const step = s + W * 0.018;
+  const y0 = rows === 2 ? H * 0.293 : H * 0.5 - s / 2;
+  tiles.forEach((t, i) => {
+    const r = Math.floor(i / perRow);
+    const k = i % perRow;
+    const inRow = Math.min(perRow, n - r * perRow);
+    const x = W / 2 + (k - (inRow - 1) / 2) * step - s / 2;
+    const y = y0 + r * (H * 0.227);
+    // Repli : la tuile d'icône d'A2, dans les teintes de la rangée et une forme par nouveauté.
+    iconVisual(c, { x, y, w: s, h: s }, t.image, { g: 'tuiles', sub: i, fill: iconTints(c)[i % 5], glyph: ICON_GLYPHS[(i + Math.floor(i / 5)) % 5] });
+  });
+  c.groups = [G('tuiles', /\b(?:grilles?|icones?|icons?|tuiles?)\b/)];
+};
+
+// A19 : prix. Le produit d'un côté (ombre de contact sur fond clair), le prix de l'autre ; un prix
+// manquant reste un marqueur estompé au corps du prix.
+function offers(c) {
+  let o = arr(c.t.offres).slice(0, 4);
+  if (!o.length) o = [{ nom: c.t.titre, mention: c.t.mention, prix: c.t.prix, note: c.t.note }];
+  return o.map((x) => x || {});
+}
+function priceColumn(c, list, zcol) {
+  const S = STYLE.A19;
+  const stacks = [];
+  let cap = 0;
+  list.forEach((o, i) => {
+    const st = offerStack(c, o, zcol.x, zcol.w, 'center', cap, list.length > 1 ? i : undefined, S.ecartNomColonne);
+    stacks.push(st);
+    cap = st.base + S.ecartOffres;
+  });
+  const total = stacks[stacks.length - 1].base;
+  stacks.forEach((st) => shiftItems(st.items, S.cy - total / 2));
+  c.kicker(textGeom(stacks[0].nameItem), { x: zcol.x, w: zcol.w, align: 'center' });
+}
+V['A19/colonne'] = (c) => {
+  productVisual(c, P(8, 5, 35, 90), c.slide.image, { g: 'visuel', silBox: () => P(15, 14, 21, 72) });
+  priceColumn(c, offers(c).slice(0, 1), P(47, 0, 46, 0));
+};
+V['A19/deux-offres'] = (c) => {
+  productVisual(c, P(8, 5, 35, 90), c.slide.image, {
+    g: 'visuel', repli: (b) => {
+      drawSilhouette(c, P(11, 10, 20, 78), { g: 'visuel', ton: 0.05 });
+      drawSilhouette(c, P(25, 26, 15, 60), { g: 'visuel' });
+      void b;
+    }
+  });
+  priceColumn(c, offers(c).slice(0, 2), P(47, 0, 46, 0));
+};
+V['A19/nom-en-haut'] = (c) => {
+  const S = STYLE.A19;
+  const o = offers(c)[0];
+  const st = offerStack(c, o, M, FULL_W, 'center', S.nomHaut, undefined, S.ecartNomHaut);
+  const top = Math.max(H * 0.47, st.base + 0.3);
+  productVisual(c, { x: P(18, 0, 64, 0).x, y: top, w: P(0, 0, 64, 0).w, h: H * 0.9 - top }, c.slide.image, { g: 'visuel', alignY: 'bottom', silBox: (b) => ({ x: W * 0.32, y: b.y + b.h * 0.25, w: W * 0.36, h: b.h * 0.7 }), forme: 'bande', exact: true });
+  c.kicker(textGeom(st.nameItem), { x: M, w: FULL_W, align: 'center' });
+};
+V['A19/gamme-alignee'] = (c) => {
+  const list = offers(c).slice(0, 4);
+  const n = list.length;
+  const step = W * 0.213;
+  list.forEach((o, i) => {
+    const cx = W / 2 + (i - (n - 1) / 2) * step;
+    // Même échelle pour tous (fiche : de 14 à 65 % H), posés sur la même ligne.
+    productVisual(c, { x: cx - W * 0.085, y: H * 0.1, w: W * 0.17, h: H * 0.55 }, o.image, { g: 'visuel', sub: i, alignY: 'bottom', exact: true, silBox: (b) => {
+      const w = b.w * 0.78;
+      const h = Math.min(b.h * 0.9, w / 0.6);
+      return { x: b.x + (b.w - w) / 2, y: b.y + b.h - h, w, h };
+    }, ton: i * 0.03 });
+    const zn = { x: cx - W * 0.095, y: H * 0.71, w: W * 0.19, h: H * 0.06 };
+    const t = zt(c, zn, str(o.nom) || c.f('_', 'nom'), { size: 20, min: 13, maxTotal: 1, anchor: 'top', g: 'nom', sub: i, name: 'Nom' });
+    let base = t.g.base;
+    if (o.mention) base = zt(c, { x: zn.x, y: base + 0.12, w: zn.w, h: 0.2 }, o.mention, { size: 11, min: 9, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, anchor: 'top', g: 'prix', sub: i, name: 'Mention' }).g.base;
+    zt(c, { x: zn.x, y: base + 0.1, w: zn.w, h: 0.3 }, str(o.prix) || c.f('_', 'prix'), { size: 24, min: 15, maxTotal: 1, noWrap: true, anchor: 'top', g: 'prix', sub: i, name: 'Prix' });
+  });
+  c.groups = [SUR, G('visuel', KW.visuel), G('nom', KW.nom), G('prix', KW.prix)];
+};
+V['A19/prix-heros'] = (c) => {
+  c.kicker(priceHero(c, offers(c)[0]), { x: M, w: FULL_W, align: 'center' });
+  c.sourceLine();
+};
+// Ancrage : le prix de référence en gris (état « reference »), puis le vrai prix en accent au même
+// endroit, sur la slide suivante (Morphose ou fondu).
+V['A19/ancrage'] = (c) => {
+  const ref = normKey(c.t.etat) === 'reference';
+  const o = offers(c)[0];
+  c.accentUsed = !ref;
+  const z = P(5, 37, 90, 26);
+  const color = ref ? c.P.fg2 : c.P.accentTxt;
+  const h = zt(c, z, str(o.prix) || c.f('_', 'prix'), { size: 144, min: 96, maxTotal: 1, noWrap: true, color, g: 'prix', name: 'Prix' });
+  const lib = tv(c, 'libelle') || o.note;
+  if (lib) zt(c, P(10, 76, 80, 7), lib, { size: 18, min: 14, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'prix', name: 'Précision' });
+  if (o.nom) c.line({ text: o.nom, x: M, w: FULL_W, base: h.g.capTop - 0.45, size: scalePt(24, 'texte'), wt: 'regular', color: c.P.fg2, align: 'center', font: 'texte', name: 'Nom', g: 'nom' });
+  c.sourceLine();
+};
+
+// A20 : disponibilité.
+function rangeFallback(c, zone, o) {
+  // Une gamme générique, calée en bas : grand écran, tablette, téléphone, boîtier.
+  o = o || {};
+  const bottom = zone.y + zone.h;
+  const hgt = zone.h;
+  // Le grand écran porte la gamme (fiche : 35 à 90 % H) ; les autres appareils se serrent à côté.
+  const specs = [['portable', 0.7, 0.98], ['tablette', 0.36, 0.68], ['telephone', 0.13, 0.62], ['boitier', 0.09, 0.26]];
+  const total = specs.reduce((a, s) => a + s[1], 0) + 0.06;
+  let x = zone.x + (zone.w - total * Math.min(zone.w / total, hgt * 2.2)) / 2;
+  const unit = Math.min(zone.w / total, hgt * 2.2);
+  specs.forEach((s, i) => {
+    const w = s[1] * unit;
+    const h = s[2] * hgt;
+    const box = { x, y: bottom - h, w, h };
+    if (s[0] === 'boitier') drawSilhouette(c, box, { g: o.g, forme: 'carre', halo: false });
+    else drawDevice(c, box, s[0], { g: o.g, mute: i !== 0, variant: ['tableau', 'liste', 'liste'][i] });
+    x += w + unit * 0.012;
+  });
+}
+function dateBlock(c, zl, zd, o) {
+  o = o || {};
+  let geo = null;
+  let base = null;
+  if (tv(c, 'libelle')) {
+    const l = zt(c, zl, c.t.libelle, { size: o.lsize || 16, min: 12, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, anchor: 'top', g: 'libelle', name: 'Libellé' });
+    base = l.g.base;
+    geo = l.g;
+  }
+  const d = zt(c, { x: zd.x, y: base === null ? zd.y : base + (o.ecart || STYLE.A20.ecart), w: zd.w, h: zd.h }, c.f('titre', 'date'), { size: o.size || 40, min: o.min || 30, maxTotal: 2, anchor: 'top', g: 'date', name: 'Date' });
+  c.kicker(geo || d.g, { x: zd.x, w: zd.w, align: 'center', ecart: 0.9 });
+  return d;
+}
+V['A20/haut-et-gamme'] = (c) => {
+  const d = dateBlock(c, P(30, 7, 40, 4.5), P(10, 12.5, 80, 11));
+  const top = Math.max(H * 0.3, d.g.base + 0.35);
+  const zone = { x: W * 0.04, y: top, w: W * 0.92, h: H * 0.89 - top };
+  const im = loadImg(c, c.slide.image);
+  if (im) {
+    const r = fitRect(zone, im.info, 'contain', undefined, 'bottom');
+    contactShadow(c, r, { g: 'visuel', largeur: 0.92 });
+    putImage(c, im, r, { name: 'Gamme', g: 'visuel' });
+  } else missingVisual(c, c.slide.image, 'objet', c.lang === 'en' ? 'the product range, aligned' : 'la gamme alignée', { g: 'visuel' }, () => rangeFallback(c, zone, { g: 'visuel' }));
+  c.sourceLine();
+};
+V['A20/suite-de-dates'] = V['A20/haut-et-gamme'];
+V['A20/colonne'] = (c) => {
+  productVisual(c, P(11, 8, 42, 84), c.slide.image, { g: 'visuel', silBox: () => P(21, 16, 22, 70) });
+  const zd = P(57, 44, 34, 10.5);
+  const zl = P(57, 38.5, 34, 4.5);
+  dateBlock(c, zl, tv(c, 'libelle') ? zd : P(57, 42, 34, 10.5));
+  c.sourceLine();
+};
+V['A20/date-et-lieux'] = (c) => {
+  productVisual(c, P(5, 22, 52, 62), c.slide.image, { g: 'visuel', silBox: () => P(18, 26, 26, 56) });
+  const d = dateBlock(c, P(62, 22, 32, 4.5), P(62, 27, 32, 9));
+  const lieux = arr(c.t.lieux).slice(0, 6);
+  if (lieux.length) zlist(c, { x: P(62, 0, 0, 0).x, y: d.g.base + 0.42, w: P(0, 0, 32, 0).w, h: 1.6 }, lieux, { size: 18, min: 12, k: 1.8, wt: 'regular', color: c.P.fg, align: 'center', anchor: 'top', g: 'lignes', maxLines: 1, actif: 0 });
+  c.groups = [SUR, G('visuel', KW.visuel), G('libelle', KW.libelle), G('date', KW.date), G('lignes', /\b(?:lieux|pays|villes?|places?|countries|cities|listes?)\b/)];
+  c.sourceLine();
+};
+V['A20/mot-seul'] = (c) => {
+  const S = STYLE.A20;
+  const A = STYLE.A1;
+  const motParas = c.para(c.f('titre', 'date'), { wt: 'semi', font: 'titre', g: 'date' });
+  const m = topBox(c, { x: P(5, 0, 0, 0).x, w: P(0, 0, 90, 0).w, capTop: 0, paras: motParas, stages: bigStages(A.corps[0], motParas.length > 1), wt: 'semi', align: 'center', font: 'titre', lh: K.titre, balance: true, name: 'Date', g: 'date' });
+  const label = tv(c, 'libelle');
+  const l = label ? topBox(c, { x: M, w: FULL_W, capTop: 0, text: label, size: 24, min: 16, maxLines: 1, color: c.P.fg2, align: 'center', font: 'texte', lh: K.titre, name: 'Libellé', g: 'libelle' }) : null;
+  const gap = l ? S.seul.ecart * m.g.capH : 0;
+  const lh = l ? l.g.base - l.g.capTop : 0;
+  const top = A.cy - (lh + gap + (m.g.base - m.g.capTop)) / 2;
+  let geo;
+  if (l) {
+    geo = placeTop(l.it, top).g;
+    placeTop(m.it, geo.base + gap);
+  } else geo = placeTop(m.it, top).g;
+  c.kicker(geo, { x: M, w: FULL_W, align: 'center', ecart: 0.9 });
+  c.sourceLine();
+};
+
+// FIN : la slide finale. Le signe (logo de l'utilisateur) ou un mot ; les mentions en petit dessous.
+function mentions(c, z) {
+  const m = arr(c.t.mentions).map(str).filter((s) => s.trim());
+  if (!m.length) return;
+  const paras = [];
+  m.slice(0, 8).forEach((s) => c.para(s, { wt: 'regular', font: 'texte', color: c.P.fg2 }).forEach((p) => paras.push(p)));
+  c.text({ x: z.x, y: z.y, w: z.w, h: z.h, paras, size: 9, min: 7, maxTotal: 8, wt: 'regular', color: c.P.fg2, align: 'center', valign: 'top', font: 'texte', lh: K.titre, name: 'Mentions', g: 'note' });
+}
+function signLogo(c, z, o) {
+  o = o || {};
+  const spec = c.slide.image && !o.photo ? c.slide.image : (c.slide.logo_final || (c.T.logo ? { chemin: c.T.logo } : null));
+  const im = loadImg(c, spec);
+  if (!im) return false;
+  putImage(c, im, fitRect(z, im.info, 'contain'), { name: 'Signe', g: 'titre' });
+  return true;
+}
+function finalWord(c, o) {
+  o = o || {};
+  const S = STYLE.finale;
+  const paras = c.para(c.f('titre', 'mot'), { wt: 'semi', font: 'titre', g: 'titre', point: true });
+  const t = centerBox(c, { x: P(5, 0, 0, 0).x, w: P(0, 0, 90, 0).w, cy: S.cy, paras, stages: bigStages(S.corps[0], paras.length > 1), wt: 'semi', align: 'center', font: 'titre', lh: K.titre, balance: true, name: 'Titre' });
+  c.kicker(t.g, { x: M, w: FULL_W, align: 'center' });
+  return t;
+}
+function finalLine(c, z, o) {
+  const txt = tv(c, 'libelle') || tv(c, 'ligne');
+  if (!txt) return;
+  zt(c, z, txt, { size: 22, min: 16, maxTotal: 1, font: 'texte', wt: 'regular', color: (o && o.color) || c.P.fg, g: 'libelle', name: 'Ligne' });
+}
+V['FIN/signe-seul'] = (c) => {
+  if (!signLogo(c, P(35, 34, 30, 27.5))) {
+    V['FIN/mot-final'](c);
+    return;
+  }
+  mentions(c, P(10, 86, 80, 10));
+};
+V['FIN/signe-et-ligne'] = (c) => {
+  if (!signLogo(c, P(35, 34, 30, 27.5))) finalWord(c);
+  finalLine(c, P(15, 85, 70, 5.5));
+  mentions(c, P(20, 92, 60, 6));
+};
+V['FIN/signe-et-evenement'] = (c) => {
+  if (!signLogo(c, P(35, 31, 30, 27.5))) {
+    zt(c, P(10, 36, 80, 18), c.f('titre', 'événement'), { size: 60, min: 40, maxTotal: 1, g: 'titre', name: 'Événement' });
+    if (tv(c, 'lieu')) zt(c, P(20, 58, 60, 5), c.t.lieu, { size: 16, min: 12, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'libelle', name: 'Lieu' });
+  } else {
+    zt(c, P(20, 68.5, 60, 6), c.f('titre', 'événement'), { size: 24, min: 18, maxTotal: 1, g: 'titre', name: 'Événement' });
+    zt(c, P(20, 75.5, 60, 4), tv(c, 'lieu') || c.f('lieu', 'lieu'), { size: 16, min: 12, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'libelle', name: 'Lieu' });
+  }
+  mentions(c, P(10, 86, 80, 10));
+};
+V['FIN/signe-sur-photo'] = (c) => {
+  const spec = c.slide.image_fond || c.slide.image;
+  if (!loadImg(c, spec)) {
+    if (spec) registerMissing(c, spec, 'photo', c.lang === 'en' ? 'calm photo (sky, material)' : 'photo calme (ciel, matière)');
+    V['FIN/signe-seul'](c);
+    return;
+  }
+  fullPhoto(c, spec, { voile: c.slide.voile !== undefined ? Number(c.slide.voile) : 20, g: 'visuel' });
+  if (!signLogo(c, P(35, 33, 30, 29), { photo: true })) {
+    const t = finalWord(c);
+    t.it.color = 'FFFFFF';
+    t.it.paras.forEach((p) => { p.color = 'FFFFFF'; });
+  }
+  finalLine(c, P(15, 85, 70, 5), { color: 'FFFFFF' });
+};
+V['FIN/mot-final'] = (c) => {
+  finalWord(c);
+  finalLine(c, P(15, 85, 70, 5));
+  mentions(c, P(10, 92, 80, 6));
+};
+
+// COLORIS : la gamme de coloris. Même angle, même échelle ; aucun nom écrit (sauf afficher_noms) ;
+// une silhouette remplie du HEX fourni, sinon des paliers de gris et une image à fournir.
+function colorways(c) {
+  const list = arr(c.t.coloris).map((x) => (typeof x === 'string' ? { nom: x } : x || {}));
+  const imgs = imagesOf(c);
+  if (!list.length && imgs.length) return imgs.map((im) => ({ image: im }));
+  if (!list.length) return [{}, {}, {}, {}];
+  return list.map((x, i) => Object.assign({ image: x.image || imgs[i] }, x));
+}
+function colorwayVisual(c, box, cw, i, o) {
+  o = o || {};
+  const hx = hex(cw.hex, null, 'coloris', null);
+  const im = loadImg(c, cw.image);
+  const g = { g: 'visuel', sub: i };
+  if (im) {
+    const r = fitRect(box, im.info, 'contain', undefined, o.alignY || 'bottom');
+    if (o.halo) softHalo(c, r, Object.assign({ color: hx || c.P.fg, opacite: hx ? 0.35 : 0.12 }, g));
+    if (o.ombre !== false) contactShadow(c, r, g);
+    putImage(c, im, r, Object.assign({ name: 'Coloris ' + (i + 1), rot: o.rot }, g));
+    return r;
+  }
+  if (!c._colorisNoted) {
+    c._colorisNoted = true;
+    registerMissing(c, cw.image, 'objet', c.lang === 'en' ? 'one cut-out PNG per colourway, same angle and scale' : 'un PNG détouré par coloris, même angle et même échelle');
+  }
+  const sil = o.silBox ? o.silBox(box) : box;
+  if (o.rot) {
+    // Silhouette pivotée : le même volume modelé, tourné, sans ombre ni halo.
+    drawSilhouette(c, sil, Object.assign({ exact: true, fill: hx || undefined, ton: hx ? 0 : i * 0.06, ombre: false, halo: false, rot: o.rot }, g));
+    return null;
+  }
+  if (o.halo && hx) softHalo(c, sil, Object.assign({ color: hx, opacite: 0.35 }, g));
+  drawSilhouette(c, sil, Object.assign({ exact: true, fill: hx || undefined, ton: hx ? 0 : i * 0.06, ombre: o.ombre, halo: false }, g));
+  return null;
+}
+function colorNames(c, list, xs, w) {
+  if (!c.t.afficher_noms) return;
+  list.forEach((cw, i) => { if (str(cw.nom)) zt(c, { x: xs[i] - w / 2, y: H * 0.84, w, h: H * 0.05 }, cw.nom, { size: 16, min: 11, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'visuel', sub: i, name: 'Nom coloris' }); });
+}
+V['COLORIS/rangee-alignee'] = (c) => {
+  const list = colorways(c).slice(0, 5);
+  const n = list.length;
+  const bw = W * (n === 5 ? 0.17 : 0.206);
+  const step = W * (n === 5 ? 0.185 : 0.231);
+  const xs = list.map((x, i) => W / 2 + (i - (n - 1) / 2) * step);
+  list.forEach((cw, i) => colorwayVisual(c, { x: xs[i] - bw / 2, y: H * 0.18, w: bw, h: H * 0.62 }, cw, i, { silBox: (b) => ({ x: b.x + b.w * 0.2, y: b.y, w: b.w * 0.6, h: b.h }) }));
+  colorNames(c, list, xs, bw);
+};
+V['COLORIS/rangee-chevauchee'] = (c) => {
+  const list = colorways(c).slice(0, 5);
+  list.forEach((cw, i) => colorwayVisual(c, P(19 + i * 13, 23 + i * 2, 22, 85), cw, i, { alignY: 'top', ombre: false, silBox: (b) => ({ x: b.x, y: b.y, w: b.w, h: b.h }) }));
+};
+V['COLORIS/eventail'] = (c) => {
+  const list = colorways(c).slice(0, 5);
+  const n = list.length;
+  const ow = W * 0.19;
+  const oh = H * 0.6;
+  const pivot = { x: W * 0.38, y: H * 0.8 };
+  // Du fond (le plus pivoté) vers l'avant (à plat).
+  for (let i = n - 1; i >= 0; i--) {
+    const ang = n > 1 ? i * 60 / (n - 1) : 0;
+    const a = ang * Math.PI / 180;
+    const vx = ow / 2;
+    const vy = -oh / 2;
+    const cx = pivot.x + vx * Math.cos(a) - vy * Math.sin(a);
+    const cy = pivot.y + vx * Math.sin(a) + vy * Math.cos(a);
+    colorwayVisual(c, { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh }, list[i], i, { rot: ang, ombre: false, alignY: 'middle' });
+  }
+};
+V['COLORIS/un-par-un'] = (c) => {
+  const cw = colorways(c)[0];
+  colorwayVisual(c, P(35, 12, 30, 76), cw, 0, { halo: true, ombre: false, alignY: 'middle', silBox: (b) => ({ x: b.x + b.w * 0.15, y: b.y, w: b.w * 0.7, h: b.h }) });
+};
+V['COLORIS/mur'] = (c) => {
+  const list = colorways(c);
+  let k = 0;
+  [[6, [-6, 12, 30, 48, 66, 84]], [52, [3, 21, 39, 57, 75, 93]]].forEach(([y, xs]) => {
+    xs.forEach((x) => {
+      colorwayVisual(c, P(x, y, 15, 38), list[k % list.length], k, { ombre: false, alignY: 'middle', silBox: (b) => ({ x: b.x + b.w * 0.12, y: b.y, w: b.w * 0.76, h: b.h }) });
+      k += 1;
+    });
+  });
+};
+
+// Les noms d'une rangée de tuiles au même corps : le plus petit des ajustements (un nom long ne
+// rapetisse plus seul dans sa tuile).
+function sameSize(items) {
+  const fs = items.filter((it) => it && it.fitted).map((it) => it.fitted);
+  if (fs.length < 2) return;
+  const m = Math.min.apply(null, fs);
+  items.forEach((it) => { if (it && it.fitted) it.fitted = m; });
+}
+// FRISE : les jalons sur une seule ligne, le présent seul en accent ; aucune date inventée.
+function milestones(c) {
+  return arr(c.t.jalons).map((x) => (typeof x === 'string' ? { titre: x } : x || {}));
+}
+V['FRISE/rangee-datee'] = (c) => {
+  let list = milestones(c).slice(0, 7);
+  if (!list.length) list = [{}, {}, {}, {}, {}, {}];
+  const n = list.length;
+  const tw = W * 0.129;
+  const step = W * 0.158;
+  c.accentUsed = true;
+  const names = [];
+  list.forEach((j, i) => {
+    const cx = W / 2 + (i - (n - 1) / 2) * step;
+    const b = { x: cx - tw / 2, y: H * 0.3, w: tw, h: H * 0.23 };
+    const now = i === n - 1;
+    c.round({ x: b.x, y: b.y, w: b.w, h: b.h, fill: c.P.surface, line: now ? c.P.accent : undefined, lineW: now ? 1.5 : undefined, radius: Math.min(VS.tuile.rayon, b.w * 0.16), name: 'Jalon ' + (i + 1), g: 'tuiles', sub: i });
+    const ib = grow(b, -b.w * 0.2, -b.h * 0.2);
+    const im = loadImg(c, j.image);
+    if (im) putImage(c, im, fitRect(ib, im.info, 'contain'), { name: 'Jalon image', g: 'tuiles', sub: i });
+    else if (str(j.titre)) names.push(zt(c, ib, j.titre, { size: 18, min: 10, maxTotal: 2, font: 'texte', color: now ? c.P.accentTxt : c.P.fg, g: 'tuiles', sub: i, name: 'Jalon nom' }).it);
+    else drawGlyph(c, grow(b, -b.w * 0.3, -b.h * 0.3), i, { g: 'tuiles', sub: i, color: now ? c.P.accent : undefined });
+    const date = str(j.date) || (c.lang === 'en' ? '[TO PROVIDE: date]' : '[À FOURNIR : date]');
+    zt(c, { x: b.x - 0.1, y: H * 0.57, w: b.w + 0.2, h: H * 0.05 }, date, { size: 16, min: 11, maxTotal: 1, font: 'texte', wt: now ? 'semi' : 'regular', color: now ? c.P.accentTxt : c.P.fg2, g: 'tuiles', sub: i, name: 'Date' });
+  });
+  sameSize(names);
+  const tz = P(10, 12, 80, 8);
+  if (tv(c, 'titre')) zt(c, tz, c.t.titre, { size: 28, min: 20, maxTotal: 1, g: 'titre', name: 'Titre' });
+  c.groups = [G('titre', KW.titre), G('tuiles', /\b(?:jalons?|tuiles?|dates?|etapes?|milestones?)\b/, { multi: true })];
+};
+V['FRISE/generations'] = (c) => {
+  let list = milestones(c).slice(0, 6);
+  if (!list.length) list = [{}, {}, {}, {}, {}];
+  const n = list.length;
+  const tw = W * 0.17;
+  const step = W * 0.1875;
+  c.accentUsed = true;
+  const names = [];
+  list.forEach((j, i) => {
+    const cx = W / 2 + (i - (n - 1) / 2) * step;
+    const b = { x: cx - tw / 2, y: H * 0.348, w: tw, h: H * 0.302 };
+    const now = i === n - 1;
+    c.round({ x: b.x, y: b.y, w: b.w, h: b.h, fill: c.P.surface, radius: Math.min(VS.tuile.rayon, b.w * 0.14), name: 'Génération ' + (i + 1), g: 'tuiles', sub: i });
+    names.push(zt(c, grow(b, -b.w * 0.1, -b.h * 0.2), str(j.titre) || c.f('_', 'nom'), { size: 28, min: 14, maxTotal: 2, color: now ? c.P.accentTxt : c.P.fg, g: 'tuiles', sub: i, name: 'Nom' }).it);
+  });
+  sameSize(names);
+  c.groups = [G('tuiles', /\b(?:generations?|tuiles?|jalons?)\b/, { multi: false })];
+};
+V['FRISE/trois-jalons'] = (c) => {
+  let list = milestones(c).slice(0, 3);
+  while (list.length < 3) list.push({});
+  const forms = ['carre', 'disque', 'carre'];
+  list.forEach((j, i) => {
+    const z = P(8 + i * 30, 28, 24, 44);
+    productVisual(c, z, j.image, { g: 'tuiles', sub: i, halo: false, ombre: true, forme: forms[i], label: str(j.titre) || (c.lang === 'en' ? 'object of the milestone' : 'objet du jalon'), silBox: (b) => grow(b, -b.w * 0.12, -b.h * 0.12), haloSil: false });
+    if (str(j.date)) zt(c, P(8 + i * 30, 77, 24, 5), j.date, { size: 16, min: 11, maxTotal: 1, font: 'texte', wt: 'regular', color: c.P.fg2, g: 'tuiles', sub: i, name: 'Date' });
+  });
+  c.groups = [G('tuiles', /\b(?:jalons?|objets?|images?)\b/, { multi: true })];
+};
+V['FRISE/courbe-et-saut'] = (c) => {
+  const tz = P(20, 6.5, 60, 7);
+  if (tv(c, 'titre')) zt(c, tz, c.t.titre, { size: 28, min: 20, maxTotal: 1, anchor: 'top', g: 'titre', name: 'Titre' });
+  const n = clamp(milestones(c).length || 4, 3, 6);
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([W * (0.17 + i * (0.6 / (n - 1))), H * (0.695 - i * 0.012)]);
+  c.add({ k: 'path', pts: [[W * 0.1, H * 0.7]].concat(pts), stroke: c.P.other, strokeW: 1.5, name: 'Ligne', g: 'barres' });
+  c.rect({ x: W * 0.1, y: H * 0.84, w: W * 0.8, h: 0.015, fill: mix(c.P.fg, c.P.bg, 0.7), name: 'Axe', g: 'titre' });
+  pts.forEach((p, i) => c.ellipse({ x: p[0] - 0.09, y: p[1] - 0.09, w: 0.18, h: 0.18, fill: c.P.bg, line: c.P.other, lineW: 1.5, name: 'Jalon ' + (i + 1), g: 'barres' }));
+  const last = pts[n - 1];
+  const tile = { x: last[0] - W * 0.04, y: H * 0.22, w: W * 0.08, h: W * 0.08 };
+  genImage(c, grow(tile, 0.35, 0.35), c.P.accent, alphaAround(0.55, { x: 0.35, y: 0.35, w: tile.w, h: tile.h }, tile.w * 0.2, 0.1, 0), 'Halo nouveauté', { g: 'chiffre', key: 'halosaut', ppi: 60 });
+  c.round({ x: tile.x, y: tile.y, w: tile.w, h: tile.h, fill: mix(c.T.fondSombre, '000000', 0.4), line: c.P.accent, lineW: 1.5, radius: tile.w * 0.2, name: 'Nouveauté', g: 'chiffre' });
+  if (tv(c, 'nom')) zt(c, grow(tile, -0.06, -0.06), c.t.nom, { size: 16, min: 9, maxTotal: 2, font: 'texte', color: 'FFFFFF', g: 'chiffre', name: 'Nom' });
+  c.rect({ x: last[0] - 0.01, y: tile.y + tile.h + 0.08, w: 0.02, h: last[1] - 0.12 - (tile.y + tile.h + 0.08), fill: c.P.accent, name: 'Flèche', g: 'chiffre' });
+  c.accentUsed = true;
+  zt(c, { x: last[0] - 0.2 - 2.4, y: H * 0.38, w: 2.4, h: H * 0.12 }, tv(c, 'chiffre') || (c.lang === 'en' ? '[TO PROVIDE: gap]' : '[À FOURNIR : écart]'), { size: 48, min: 28, maxTotal: 1, noWrap: true, align: 'right', color: c.P.accentTxt, g: 'chiffre', name: 'Écart' });
+  const per = arr(c.t.periodes);
+  if (per[0]) c.line({ text: str(per[0]), x: W * 0.11, w: 1.4, base: H * 0.9, size: scalePt(16, 'texte'), wt: 'regular', color: c.P.fg2, align: 'left', font: 'texte', name: 'Période début', g: 'titre' });
+  if (per[1]) c.line({ text: str(per[per.length - 1]), x: W * 0.84 - 1.4, w: 1.4, base: H * 0.9, size: scalePt(16, 'texte'), wt: 'regular', color: c.P.fg2, align: 'right', font: 'texte', name: 'Période fin', g: 'titre' });
+  srcLine(c, P(6, 94, 88, 4));
+  c.groups = [G('titre', /\b(?:titres?|axes?)\b/), G('barres', /\b(?:lignes?|jalons?|lines?)\b/), G('chiffre', /\b(?:nouveautes?|sauts?|fleches?|ecarts?|chiffres?)\b/)];
+};
+V['FRISE/objet-du-passe'] = (c) => {
+  productVisual(c, P(35, 15, 30, 70), c.slide.image, { g: 'visuel', halo: false, silBox: (b) => grow(b, -b.w * 0.2, -b.h * 0.18), haloSil: false, label: c.lang === 'en' ? 'object or screen of the past' : 'objet ou écran d\'autrefois' });
+  c.groups = [G('visuel', KW.visuel)];
+};
+
+// ---------------------------------------------------------------------------
+// Aiguillage : slide.variante (nom exact des fiches). FIN, COLORIS et FRISE se posent sur n'importe
+// quel archétype (archetype « FIN », « COLORIS » ou « FRISE » accepté aussi) ; les autres
+// variantes appartiennent à leur archétype.
+// ---------------------------------------------------------------------------
+const FAMILLES_LIBRES = ['FIN', 'COLORIS', 'FRISE'];
+// Variantes qui posent elles-mêmes leur photo à fond perdu : pas d'image de fond en plus.
+const OWN_PHOTO = new Set(['A1/sur-image', 'A4/sur-image', 'A5/sur-photo', 'A7/sur-photo', 'A8/sur-contenu', 'A10/capture-nue', 'A12/macro-matiere',
+  'A18/usage', 'A18/exemple-cartouche', 'A18/diptyque', 'A18/photo-titre', 'A21/gauche', 'A21/droite', 'A21/double', 'A21/sur-clair', 'A21/carte-portrait', 'FIN/signe-sur-photo']);
+const VARIANTE_DEFAUT = { FIN: 'signe-seul', COLORIS: 'rangee-alignee', FRISE: 'rangee-datee' };
+function resolveVariant(arch, variante) {
+  const v = normKey(variante);
+  if (!v && VARIANTE_DEFAUT[arch]) return { key: arch + '/' + VARIANTE_DEFAUT[arch], arch, fn: V[arch + '/' + VARIANTE_DEFAUT[arch]] };
+  if (!v) return null;
+  if (V[arch + '/' + v]) return { key: arch + '/' + v, arch, fn: V[arch + '/' + v] };
+  for (const f of FAMILLES_LIBRES) if (V[f + '/' + v]) return { key: f + '/' + v, arch: f, fn: V[f + '/' + v] };
+  return null;
+}
+function variantNames(arch) {
+  return Object.keys(V).filter((k) => k.startsWith(arch + '/')).map((k) => k.split('/')[1]);
+}
+
 
 // Cibles d'un groupe : éléments entiers (it.g) ou plages de paragraphes d'une zone de texte.
 function groupTargets(c, key) {
@@ -2361,7 +5619,7 @@ function planAnimations(c) {
   }).filter((s) => s.trim());
   if (!raw.length) return [];
   const defs = [];
-  (GROUPS[c.renderArch] || []).forEach((d, i) => {
+  (c.groups || (c.variante && VGROUPS[c.renderArch]) || GROUPS[c.renderArch] || []).forEach((d, i) => {
     const t = groupTargets(c, d.key);
     if (!t.all.length) return;
     const multi = d.multi === true || (d.multi === 'auto' && t.subs.length > 1);
@@ -2509,7 +5767,7 @@ function speakerHead(id, env, L) {
   if (first) return name + ' · ' + (hasFournir(role) ? role : (env.lang === 'en' ? '[TO PROVIDE: ' + L.role + ']' : '[À FOURNIR : ' + L.role + ']'));
   return name;
 }
-function provideItems(slide, c, env) {
+function provideItems(slide, c, env, withBrief) {
   const L = c.L;
   const out = [];
   if (c.fournirs.length) out.push(c.fournirs.join(', ') + '.');
@@ -2517,7 +5775,7 @@ function provideItems(slide, c, env) {
   if (c.arch === 'AF' && c.t.attendu) out.push(str(c.t.attendu).trim());
   c.missing.forEach((m) => {
     if (m.kind === 'logo' && !m.chemin) return;
-    out.push((L.kind[m.kind] || L.kind.interface) + (m.attendu ? ' ' + L.q(m.attendu) : '') + (m.chemin ? ' (' + m.chemin + ')' : '') + '.');
+    out.push((L.kind[m.kind] || L.kind.interface) + (m.attendu ? ' ' + L.q(m.attendu) : '') + (m.chemin ? ' (' + m.chemin + ')' : '') + (withBrief && m.brief ? (c.lang === 'en' ? ' — ' : ' : ') + m.brief : '') + '.');
   });
   return uniq(out);
 }
@@ -2565,6 +5823,13 @@ function shadowPt() {
   const O = STYLE.schema.ombre;
   return { type: 'outer', blur: Math.round(O.flou * 72 * 10) / 10, offset: Math.round(O.decalage * 72 * 10) / 10, angle: 90, color: '000000', opacity: O.opacite };
 }
+function pathBox(it) {
+  const xs = it.pts.map((q) => q[0]);
+  const ys = it.pts.map((q) => q[1]);
+  const x = Math.min.apply(null, xs);
+  const y = Math.min.apply(null, ys);
+  return { x, y, w: Math.max(0.01, Math.max.apply(null, xs) - x), h: Math.max(0.01, Math.max.apply(null, ys) - y) };
+}
 function pptxRender(pres, slideObj, c, env) {
   const T = env.T;
   const langTag = env.lang === 'en' ? 'en-US' : 'fr-FR';
@@ -2582,14 +5847,25 @@ function pptxRender(pres, slideObj, c, env) {
       if (it.line) o.line = { color: it.line, width: it.lineW || 1, dashType: it.dash || 'solid' };
       if (it.k === 'round') o.rectRadius = round2(Math.max(0, Math.min(it.radius || 0.1, it.w / 2, it.h / 2)));
       if (it.shadow) o.shadow = shadowPt();
+      if (it.rot) o.rotate = Math.round(it.rot * 100) / 100;
       slideObj.addShape(shape, o);
+      reg(idx, 'sp', [it.name]);
+    } else if (it.k === 'path') {
+      // Tracé libre (courbe, arc, triangle) : géométrie personnalisée, points relatifs à sa boîte.
+      const bb = pathBox(it);
+      const pts = it.pts.map((q) => ({ x: round2(q[0] - bb.x), y: round2(q[1] - bb.y) }));
+      if (it.closed) pts.push({ close: true });
+      const o = { x: round2(bb.x), y: round2(bb.y), w: round2(bb.w), h: round2(bb.h), points: pts, objectName: it.name };
+      if (it.fill) o.fill = it.transparency ? { color: it.fill, transparency: it.transparency } : { color: it.fill };
+      if (it.stroke) o.line = { color: it.stroke, width: it.strokeW || 1, dashType: it.dash || 'solid' };
+      slideObj.addShape(pres.ShapeType.custGeom, o);
       reg(idx, 'sp', [it.name]);
     } else if (it.k === 'check') {
       const s = it.d;
       const a = { x: it.cx - 0.24 * s, y: it.cy + 0.0 * s };
       const b = { x: it.cx - 0.06 * s, y: it.cy + 0.18 * s };
       const e = { x: it.cx + 0.26 * s, y: it.cy - 0.2 * s };
-      const w = Math.max(1.5, s * 7);
+      const w = it.strokeW || Math.max(1.5, s * 7);
       slideObj.addShape(pres.ShapeType.line, { x: round2(a.x), y: round2(a.y), w: round2(b.x - a.x), h: round2(b.y - a.y), line: { color: it.color, width: w }, objectName: it.name + ' a' });
       slideObj.addShape(pres.ShapeType.line, { x: round2(b.x), y: round2(e.y), w: round2(e.x - b.x), h: round2(b.y - e.y), flipV: true, line: { color: it.color, width: w }, objectName: it.name + ' b' });
       reg(idx, 'sp', [it.name + ' a', it.name + ' b']);
@@ -2598,7 +5874,13 @@ function pptxRender(pres, slideObj, c, env) {
       slideObj.addShape(pres.ShapeType.line, { x: round2(it.x), y: round2(it.y + it.h / 2), w: round2(it.w), h: 0, line: { color: it.color, width: it.pt, dashType: 'sysDot', transparency: Math.round((1 - STYLE.marqueur.opacite) * 100) }, objectName: it.name });
       reg(idx, 'sp', [it.name]);
     } else if (it.k === 'image') {
-      if (it.mode === 'cover') {
+      const src = it.gen ? { data: it.info.mime + ';base64,' + it.info.buf.toString('base64') } : { path: it.abs };
+      if (it.full) {
+        // Image recadrée : posée à sa taille entière, seule la partie visible est gardée (srcRect).
+        slideObj.addImage(Object.assign({}, src, { x: round2(it.x), y: round2(it.y), w: round2(it.full.w), h: round2(it.full.h), sizing: { type: 'crop', x: round2(it.x - it.full.x), y: round2(it.y - it.full.y), w: round2(it.w), h: round2(it.h) }, altText: it.alt, objectName: it.name }));
+      } else if (it.gen || it.rot) {
+        slideObj.addImage(Object.assign({}, src, { x: round2(it.x), y: round2(it.y), w: round2(it.w), h: round2(it.h), rotate: it.rot || undefined, altText: it.alt || 'décor', objectName: it.name }));
+      } else if (it.mode === 'cover') {
         const iw = it.info.w;
         const ih = it.info.h;
         slideObj.addImage({ path: it.abs, x: round2(it.x), y: round2(it.y), w: round2(it.w), h: round2(it.w * ih / iw), sizing: { type: 'cover', w: round2(it.w), h: round2(it.h) }, altText: it.alt, objectName: it.name });
@@ -2620,7 +5902,7 @@ function pptxRender(pres, slideObj, c, env) {
         runs.forEach((r, ri) => {
           const o = {
             fontFace: xmlFace(F.face), fontSize: ps, bold: F.bold,
-            color: r.accent ? c.P.accentTxt : (p.color || it.color),
+            color: r.marker ? markerInk(c, r.color || (r.accent ? c.P.accentTxt : (p.color || it.color))) : (r.color || (r.accent ? c.P.accentTxt : (p.color || it.color))),
             align: p.align || it.align, lineSpacing: lnPt, paraSpaceAfter: after, lang: langTag
           };
           if (track) o.charSpacing = Math.round(track * ps * 100) / 100;
@@ -2669,16 +5951,25 @@ function htmlItems(c, env) {
       if (it.line) st += 'border:' + cqPt(it.lineW || 1) + ' ' + (it.dash === 'dash' ? 'dashed' : 'solid') + ' #' + it.line + ';box-sizing:border-box;';
       if (it.k === 'ellipse') st += 'border-radius:50%;';
       if (it.k === 'round') st += 'border-radius:' + cq(Math.max(0, Math.min(it.radius || 0.1, it.w / 2, it.h / 2))) + ';';
+      if (it.grad2 && it.fill) st += 'background:linear-gradient(' + (90 + (it.grad2.ang === undefined ? 90 : it.grad2.ang)) + 'deg,#' + it.grad2.from + ',#' + it.grad2.to + ');';
+      if (it.rot) st += 'transform:rotate(' + it.rot + 'deg);';
       if (it.shadow) {
         const O = STYLE.schema.ombre;
         st += 'box-shadow:0 ' + cq(O.decalage) + ' ' + cq(O.flou) + ' rgba(0,0,0,' + O.opacite + ');';
       }
       out.push('<div class="sh" title="' + escHtml(it.name || '') + '" style="' + st + '"></div>');
+    } else if (it.k === 'path') {
+      const bb = pathBox(it);
+      const u = (v) => round2(v * 1000);
+      const d = it.pts.map((q, k) => (k ? 'L' : 'M') + u(q[0] - bb.x) + ' ' + u(q[1] - bb.y)).join(' ') + (it.closed ? ' Z' : '');
+      const stroke = it.stroke ? ' stroke="#' + it.stroke + '" stroke-width="' + round2((it.strokeW || 1) / 72 * 1000) + '" stroke-linecap="' + (it.cap === 'rnd' ? 'round' : 'butt') + '" stroke-linejoin="' + (it.join === 'round' ? 'round' : 'miter') + '"' + (it.dash === 'sysDot' ? ' stroke-dasharray="' + round2((it.strokeW || 1) / 72 * 1000) + ' ' + round2((it.strokeW || 1) / 72 * 2000) + '"' : '') : '';
+      const fill = it.fill ? '#' + it.fill + '" fill-opacity="' + (it.transparency ? round2(1 - it.transparency / 100) : 1) : 'none';
+      out.push('<svg class="sh" style="left:' + cq(bb.x) + ';top:' + cq(bb.y) + ';width:' + cq(bb.w) + ';height:' + cq(bb.h) + ';overflow:visible" viewBox="0 0 ' + u(bb.w) + ' ' + u(bb.h) + '" preserveAspectRatio="none"><path d="' + d + '" fill="' + fill + '"' + stroke + '/></svg>');
     } else if (it.k === 'check') {
       const s = it.d;
       const box = 'left:' + cq(it.cx - s / 2) + ';top:' + cq(it.cy - s / 2) + ';width:' + cq(s) + ';height:' + cq(s) + ';';
       const pts = [[0.26, 0.5], [0.44, 0.68], [0.76, 0.3]].map((p) => (p[0] * 100) + ',' + (p[1] * 100)).join(' ');
-      const sw = round2(Math.max(1.5, s * 7) / 72 / s * 100);
+      const sw = round2((it.strokeW || Math.max(1.5, s * 7)) / 72 / s * 100);
       out.push('<svg class="sh" style="' + box + '" viewBox="0 0 100 100"><polyline points="' + pts + '" fill="none" stroke="#' + it.color + '" stroke-width="' + sw + '" stroke-linecap="square"/></svg>');
     } else if (it.k === 'rule') {
       const [ur, ug, ub] = rgbOf(it.color);
@@ -2688,7 +5979,11 @@ function htmlItems(c, env) {
       out.push('<div class="sh" title="' + escHtml(it.name || '') + '" style="left:' + cq(rx) + ';top:' + cq(it.y) + ';width:' + cq(rw) + ';height:0;border-top:max(1px,' + cqPt(it.pt) + ') dotted rgba(' + ur + ',' + ug + ',' + ub + ',' + STYLE.marqueur.opacite + ');"></div>');
     } else if (it.k === 'image') {
       const data = 'data:' + it.info.mime + ';base64,' + it.info.buf.toString('base64');
-      out.push('<img class="sh" alt="' + escHtml(it.alt || '') + '" src="' + data + '" style="' + pos + 'object-fit:' + (it.mode === 'cover' ? 'cover' : 'fill') + ';' + (it.radius ? 'border-radius:' + cq(it.radius) + ';' : '') + '">');
+      const fx = (it.gray ? 'filter:grayscale(1);' : '') + (it.rot ? 'transform:rotate(' + it.rot + 'deg);' : '');
+      if (it.full) {
+        // Recadrage : une fenêtre (la partie visible) et l'image entière dedans, à sa place.
+        out.push('<div class="sh" style="' + pos + 'overflow:hidden;' + (it.radius ? 'border-radius:' + cq(it.radius) + ';' : '') + '"><img alt="' + escHtml(it.alt || '') + '" src="' + data + '" style="position:absolute;left:' + cq(it.full.x - it.x) + ';top:' + cq(it.full.y - it.y) + ';width:' + cq(it.full.w) + ';height:' + cq(it.full.h) + ';max-width:none;' + fx + '"></div>');
+      } else out.push('<img class="sh" alt="' + escHtml(it.alt || '') + '" src="' + data + '" style="' + pos + 'object-fit:' + (it.mode === 'cover' ? 'cover' : 'fill') + ';' + (it.radius ? 'border-radius:' + cq(it.radius) + ';' : '') + fx + '">');
     } else if (it.k === 'text') {
       const jc = it.valign === 'top' ? 'flex-start' : it.valign === 'bottom' ? 'flex-end' : 'center';
       let inner = '';
@@ -2707,11 +6002,14 @@ function htmlItems(c, env) {
           const t = escHtml(r.t) || '&#8203;';
           let s = '';
           if (r.marker) {
-            // Estompé comme dans le .pptx : la couleur du texte remplacé, à l'opacité du marqueur. En
+            // Estompé comme dans le .pptx : la couleur du texte remplacé (sauf l'accent), à l'opacité du marqueur. En
             // rgba plutôt qu'en opacity, pour que le pointillé garde la sienne, comme dans le .pptx.
-            const [mr, mg, mb] = rgbOf(r.accent ? c.P.accentTxt : (p.color || it.color));
+            const [mr, mg, mb] = rgbOf(markerInk(c, r.color || (r.accent ? c.P.accentTxt : (p.color || it.color))));
             s += 'color:rgba(' + mr + ',' + mg + ',' + mb + ',' + STYLE.marqueur.texte + ');';
-          } else if (r.accent) s += 'color:#' + c.P.accentTxt + ';';
+          } else if (r.color) s += 'color:#' + r.color + ';';
+          else if (r.accent) s += 'color:#' + c.P.accentTxt + ';';
+          // Lueur autour du trait seul (comme <a:glow> dans le .pptx) : un text-shadow remplirait les lettres.
+          if (it.outline && !r.marker) s += '-webkit-text-stroke:' + cqPt(it.outline.pt) + ' #' + it.outline.color + ';color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 ' + cqPt(it.outline.glow) + ' rgba(' + rgbOf(it.outline.color).join(',') + ',' + Math.min(1, it.outline.glowA * 1.6) + '));';
           if (r.grad && it.grad && !r.marker) s +='background:linear-gradient(90deg,#' + c.P.accent + ',#' + c.P.accent2 + ');-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;';
           if (r.marker && r.ul !== false) {
             const [ur, ug, ub] = rgbOf(c.P.accentTxt);
@@ -2944,6 +6242,31 @@ function processSlideXml(xml, x, env, slideNo) {
       xml = xml.replace(re, (pic) => pic.replace(/<a:prstGeom prst="rect">\s*<a:avLst\s*\/>\s*<\/a:prstGeom>/, '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ' + adj + '"/></a:avLst></a:prstGeom>'));
     });
   }
+  // 3 quater. Variantes : bouts et angles ronds des tracés, dégradé d'une forme, chiffre au trait
+  // (contour et lueur), photo en niveaux de gris.
+  if (consistent) {
+    const spOf = (id, tag) => new RegExp('<p:' + tag + '>(?:(?!<\\/p:' + tag + '>)[\\s\\S])*?<p:cNvPr id="' + id + '" [\\s\\S]*?<\\/p:' + tag + '>');
+    c.items.forEach((it, i) => {
+      if (!map[i]) return;
+      const id = map[i].ids[0];
+      if ((it.k === 'path' || it.k === 'round' || it.k === 'ellipse') && (it.cap || it.join)) {
+        xml = xml.replace(spOf(id, 'sp'), (sp) => sp.replace(/<a:ln w="/, '<a:ln' + (it.cap === 'rnd' ? ' cap="rnd"' : '') + ' w="').replace(/<\/a:ln>/, it.join === 'round' ? '<a:round/></a:ln>' : '</a:ln>'));
+      }
+      if (it.grad2 && it.fill && (it.k === 'round' || it.k === 'rect' || it.k === 'ellipse')) {
+        const a = Math.round(((it.grad2.ang === undefined ? 90 : it.grad2.ang) % 360) * 60000);
+        xml = xml.replace(spOf(id, 'sp'), (sp) => sp.replace(new RegExp('(<\\/a:prstGeom>)<a:solidFill><a:srgbClr val="' + it.fill + '"(?:\\/>|>(?:<a:alpha val="\\d+"\\/>)?<\\/a:srgbClr>)<\\/a:solidFill>'),
+          '$1<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="' + it.grad2.from + '"/></a:gs><a:gs pos="100000"><a:srgbClr val="' + it.grad2.to + '"/></a:gs></a:gsLst><a:lin ang="' + a + '" scaled="0"/></a:gradFill>'));
+      }
+      if (it.k === 'text' && it.outline) {
+        const O = it.outline;
+        xml = xml.replace(spOf(id, 'sp'), (sp) => sp.replace(/(<a:rPr\b[^>]*>)<a:solidFill><a:srgbClr val="[0-9A-F]{6}"(?:\/>|><\/a:srgbClr>)<\/a:solidFill>/g,
+          '$1<a:ln w="' + Math.round(O.pt * 12700) + '"><a:solidFill><a:srgbClr val="' + O.color + '"/></a:solidFill></a:ln><a:noFill/><a:effectLst><a:glow rad="' + Math.round(O.glow * 12700) + '"><a:srgbClr val="' + O.color + '"><a:alpha val="' + Math.round(O.glowA * 100000) + '"/></a:srgbClr></a:glow></a:effectLst>'));
+      }
+      if (it.k === 'image' && it.gray) {
+        xml = xml.replace(spOf(id, 'pic'), (pic) => pic.replace(/(<a:blip r:embed="[^"]+">)/, '$1<a:grayscl/>'));
+      }
+    });
+  }
   // 3 ter. Soulignement des [À FOURNIR] adouci (opacité de STYLE.marqueur).
   const alpha = Math.round(STYLE.marqueur.opacite * 100000);
   if (alpha < 100000) xml = xml.replace(/<a:uFill><a:solidFill><a:srgbClr val="([0-9A-F]{6})"(?:\/>|><\/a:srgbClr>)<\/a:solidFill><\/a:uFill>/g, '<a:uFill><a:solidFill><a:srgbClr val="$1"><a:alpha val="' + alpha + '"/></a:srgbClr></a:solidFill></a:uFill>');
@@ -3118,7 +6441,9 @@ async function main() {
   const env = {
     T, lang, deckDir: path.dirname(deckPath), pub, sourceMode, intervenants, people,
     collectedSources: [], sourceCounter: 0, sourceIndex: {}, lastSpeaker: null, introduced: new Set(), globalWarnings,
-    finalIndex: deck.slides.length - 1
+    finalIndex: deck.slides.length - 1,
+    // Canva perd l'opacité des runs à l'import : les [À FOURNIR] y gardent des crochets visibles.
+    crochets: normKey(meta.format) === 'canva'
   };
 
   // Composition
@@ -3195,7 +6520,7 @@ async function main() {
     const screen = x.c.proposals.map((p) => L.q(p));
     const said = notesProps.filter((p) => !x.c.proposals.includes(p)).map((p) => L.q(p));
     if (screen.length || said.length) val.push('  - slide ' + (i + 1) + ' (' + (x.slide.id || '') + ') : ' + (screen.length ? (lang === 'en' ? 'on screen ' : 'à l\'écran ') + screen.join(' ; ') : '') + (screen.length && said.length ? ' · ' : '') + (said.length ? (lang === 'en' ? 'in the script ' : 'dans le script ') + said.join(' ; ') : ''));
-    const items = provideItems(x.slide, x.c, env);
+    const items = provideItems(x.slide, x.c, env, true);
     const inNotes = noteSegments(x.slide, env).reduce((n, s) => n + fournirLabels(s.texte).length, 0);
     if (items.length || inNotes) prov.push('  - slide ' + (i + 1) + ' (' + (x.slide.id || '') + ') : ' + items.join(' ') + (inNotes ? (items.length ? ' · ' : '') + inNotes + (lang === 'en' ? ' marker(s) in the script' : ' marqueur(s) dans le script') : ''));
   });

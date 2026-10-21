@@ -18,6 +18,12 @@ Quelques règles qu'elle tient :
 
 La grammaire vient d'une analyse de huit keynotes Apple publiques (2019-2026) : déroulés, plans, formules en anglais et en français. Les mises en page sont étalonnées sur des mesures prises sur ces plans. La skill ne contient aucune image, aucune police ni aucune citation d'Apple.
 
+## Les designs
+
+La skill connaît 25 types de slides tirés des keynotes (carte-titre, chiffre héros, grille récapitulative, produit seul, capture dans un appareil, photo à fond perdu, prix, disponibilité…) et **147 variantes de composition**, décrites type par type dans `references/designs.md`. Elle choisit le design slide par slide, en variant d'un bloc à l'autre, et livre **la liste des visuels à préparer**, avec un brief pour chacun : type, cadrage, fond transparent ou non, résolution. Tant qu'un visuel manque, elle dessine un repli neutre, sans chiffre ni marque.
+
+![Galerie des 137 designs rendus par la skill, sur une marque fictive](skills/sebmakes-keynote-likeapple-pls/assets/galerie.jpg)
+
 ## Installation
 
 **Claude Code, comme plugin :**
@@ -50,6 +56,7 @@ A Claude skill that builds a 16:9 deck **and the full speaker script** with the 
 - It asks for the format (Keynote, PowerPoint, Figma Slides, Canva or video), your branding (a design-system link or HEX colours), the audience type, and the tone. Then it shows the run of show before producing anything.
 - It delivers a 16:9 .pptx with fades and click builds, an HTML preview, and the full script in the speaker notes and in `script.md`.
 - It never invents a figure, price, date, client or testimonial: missing items stay visible as `[TO PROVIDE]`. Proposed wording is flagged `[TO VALIDATE]`.
+- It knows 25 slide types and 147 layout variants (see `references/designs.md` and the gallery above), picks a design for each slide, and lists the visuals to prepare, each with a brief.
 
 Install with `claude plugin marketplace add sebmakes/sebmakes-keynote-likeapple-pls`, then `claude plugin install sebmakes-keynote-likeapple-pls@sebmakes`. You can also copy `skills/sebmakes-keynote-likeapple-pls` into `~/.claude/skills/`. Requires Node 18+ and Python 3.9+.
 

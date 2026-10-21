@@ -12,6 +12,7 @@ Lis `style-visuel.md` avant d'écrire le premier texte : il montre à quoi resse
 - **Des titres très courts et très gros**, gras, interligne serré. Un mot ou une phrase par écran, jamais un paragraphe.
 - **Un surtitre d'accent** (1 à 3 mots) au-dessus du titre quand il situe le moment, et le point final du titre en accent.
 - **Un moment visuel par bloc** au moins : un chiffre géant, une interface, une grille de récap. Et une slide finale forte.
+- **Un design par slide** : l'archétype et sa variante, choisis dans `designs.md` d'après le contenu et les visuels disponibles. Jamais trois fois de suite la même composition.
 - **Une capture manque ?** Une interface schématique dessinée prend sa place, sur le fond de la slide : des barres grises, pas des nombres. Jamais un cadre vide.
 - **Un seul fond** pour le deck ; on n'en change qu'entre deux blocs.
 - **Rien de l'atelier à l'écran** : ni nom d'archétype, ni numéro d'étape, ni consigne. Un `[À VALIDER]` s'affiche comme du vrai texte ; un `[À FOURNIR]` tient en 3 mots.
@@ -194,6 +195,8 @@ Les tailles ci-dessous viennent du corpus et de conventions. Pour le rendu, `sty
 | A25 | Démo manipulée | juste après l'annonce d'une fonction | mains qui tiennent l'appareil devant un fond uni, ou orateur au poste de démo avec l'écran en grand ; alterner plan large, mains, plein cadre | — |
 
 A21 à A25 sont des plans, pas des slides : en salle, ils deviennent des indications de mise en scène dans le script ; en vidéo, des plans à tourner.
+
+Ce tableau dit quand prendre chaque archétype. Comment le dessiner (variantes de composition, contenu visuel, profondeur, visuel à préparer et repli) : `designs.md`, une fiche par archétype.
 
 ## 7. Les formules par fonction
 

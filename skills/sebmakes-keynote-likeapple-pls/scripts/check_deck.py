@@ -12,6 +12,11 @@ Usage :
 Les propositions [À VALIDER : texte] ne bloquent jamais : elles sont listées à part
 (section « À VALIDER »), pour que la livraison les fasse valider une à une.
 
+Design : slide.variante doit exister pour l'archétype (table VARIANTES, copie de la liste du
+moteur) ; slide.visuel décrit le visuel à préparer. Avertissement si trois slides de suite ont
+le même archétype et la même variante, ou si un bloc de deux slides ou plus n'a aucun moment
+visuel (A5, A9, A10, A13, A14, A18 ou variante à image). Voir ../references/designs.md.
+
 Code de sortie : 0 sans erreur bloquante, 1 s'il y a au moins une erreur bloquante,
 2 si le fichier est illisible.
 
@@ -41,6 +46,81 @@ REQUIRED = {
     "A20": ["titre"], "AF": ["attendu"],
 }
 VISIBLE_FIELDS = ["titre", "chiffre", "libelle", "mention", "prix", "note", "nom", "fonction", "axe"]
+# Variantes que build_deck.js sait dessiner (slide.variante), par archétype : copie de la liste du
+# moteur (references/designs.md les décrit une à une, deck-spec.md les résume). Sans variante, le
+# moteur garde le rendu d'origine de l'archétype ; FIN, COLORIS et FRISE prennent leur première
+# variante. Les variantes de FIN, COLORIS et FRISE se posent aussi sur n'importe quel archétype.
+# À tenir à jour quand le moteur change.
+VARIANTES = {
+    "A1": ["aplat", "degrade", "sur-image", "entoure", "matiere"],
+    "A2": ["icone-nom", "icone-cote", "logo-nom", "rangee", "objet-interface", "icone-seule"],
+    "A3": ["centre", "droite", "ligne", "numerote", "suffixe", "ligne-active", "couleurs"],
+    "A4": ["aplat", "degrade", "mot-accent", "definition", "sur-image", "sourdine", "enchainee"],
+    "A5": ["centre", "bloc", "a-cote", "sur-photo", "objet-anneau", "objet-jauge", "contour"],
+    "A6": ["barres", "deux-axes", "anneaux", "frise", "classement"],
+    "A7": ["centree", "empilement", "a-cote-icone", "a-cote-objet", "deux-colonnes", "sur-photo", "filet"],
+    "A8": ["coche-par-ligne", "cercles-puis-coches", "risque-puis-reponse", "picto-par-ligne", "sur-contenu"],
+    "A9": ["appareil-centre-mot", "objet-coupe", "objet-liste", "objet-chiffre", "annotee", "empilee"],
+    "A10": ["telephone-centre", "tablette-centre", "portable-centre", "zoom-serre", "capture-nue", "rangee"],
+    "A11": ["legende-laterale", "plusieurs-blocs", "schema-chiffre", "carte-annotee", "carre-halo"],
+    "A12": ["macro-matiere", "capot-ouvert", "eclate-axial", "flux-lumiere"],
+    "A13": ["centre-entier", "hero-coupe", "profil-levitation", "coloris"],
+    "A14": ["nom-au-centre", "produit-au-centre", "tuiles-chiffres", "mot-geant-et-produit", "theme-et-matieres", "grille-icones"],
+    "A15": ["vignettes", "icones", "mots", "nuage", "cartes-libelles", "forme"],
+    "A16": ["grille", "ligne", "logo-seul", "mur-dense", "pastilles", "soi-au-centre"],
+    "A17": ["courte", "longue", "source-accent", "centree-signature"],
+    "A18": ["usage", "exemple-cartouche", "diptyque", "photo-titre"],
+    "A19": ["colonne", "deux-offres", "nom-en-haut", "gamme-alignee", "prix-heros", "ancrage"],
+    "A20": ["haut-et-gamme", "suite-de-dates", "colonne", "date-et-lieux", "mot-seul"],
+    "A21": ["gauche", "droite", "double", "sur-clair", "carte-invite", "carte-portrait"],
+    # Plans de scène : acceptés, rendus en photo plein cadre (avertissement).
+    "A22": ["hall-ecran", "scene-mur", "panneau-verre"],
+    "A23": ["mot-coupe", "contenu-lisible", "interface-geante", "slide-floue"],
+    "A24": ["large-centre", "taille-centre", "decor-sujet"],
+    "A25": ["table-flux", "mains-fond-uni", "epaule", "table-haute", "tend-appareil"],
+    "FIN": ["signe-seul", "signe-et-ligne", "signe-et-evenement", "signe-sur-photo", "mot-final"],
+    "COLORIS": ["rangee-alignee", "rangee-chevauchee", "eventail", "un-par-un", "mur"],
+    "FRISE": ["rangee-datee", "generations", "trois-jalons", "courbe-et-saut", "objet-du-passe"],
+}
+FAMILLES_LIBRES = ("FIN", "COLORIS", "FRISE")       # archétypes du moteur hors catalogue A1 à A25
+# Variantes qui posent une photo, une capture, un objet ou un produit : elles comptent comme moment
+# visuel (« ARCH/variante » ; « ARCH/ » = l'archétype sans variante).
+VARIANTES_IMAGE = {
+    "A1/sur-image", "A1/matiere", "A4/sur-image", "A5/a-cote", "A5/sur-photo",
+    "A7/a-cote-objet", "A7/sur-photo", "A7/filet", "A8/sur-contenu", "A11/carte-annotee",
+    "A12/", "A12/macro-matiere", "A12/capot-ouvert", "A12/eclate-axial", "A12/flux-lumiere",
+    "A15/vignettes", "A15/icones", "A15/forme",
+    "A19/", "A19/colonne", "A19/deux-offres", "A19/nom-en-haut", "A19/gamme-alignee",
+    "A20/haut-et-gamme", "A20/colonne", "A20/suite-de-dates", "A20/date-et-lieux",
+    "A21/gauche", "A21/droite", "A21/double", "A21/sur-clair", "A21/carte-portrait",
+    "FIN/signe-sur-photo", "COLORIS/rangee-alignee", "COLORIS/rangee-chevauchee", "COLORIS/eventail",
+    "COLORIS/un-par-un", "COLORIS/mur", "FRISE/trois-jalons", "FRISE/objet-du-passe",
+}
+VARIANTES_IMAGE.update(a + "/" + v for a in ("A22", "A23", "A24", "A25") for v in [""] + VARIANTES[a])
+# Sans variante, le rendu d'origine est celui de la première variante pour ces archétypes.
+ORIGINE = {"A1": "aplat", "A3": "centre", "A4": "aplat", "A5": "centre", "A7": "centree", "A17": "courte"}
+# Champs obligatoires qui changent avec la variante (sinon ceux de REQUIRED pour l'archétype).
+REQUIRED_VARIANTE = {
+    "A2/rangee": [], "A2/icone-seule": [], "A5/objet-jauge": ["chiffre"],
+    "A6/deux-axes": ["titre"], "A6/frise": ["titre"], "A6/classement": ["titre"],
+    "A9/objet-chiffre": ["chiffre"], "A9/annotee": [], "A11/carte-annotee": [], "A11/carre-halo": [],
+    "A14/produit-au-centre": ["tuiles"], "A14/tuiles-chiffres": ["tuiles"], "A14/grille-icones": ["tuiles"],
+    "FIN/mot-final": ["titre"],
+}
+REQUIRED_VARIANTE.update((a + "/" + v, []) for a in ("A15", "A16") for v in VARIANTES[a])
+REQUIRED_VARIANTE.update((a + "/" + v, []) for a in FAMILLES_LIBRES for v in VARIANTES[a] if a + "/" + v not in REQUIRED_VARIANTE)
+TUILES_BORNES = {"A14/produit-au-centre": (4, 10), "A14/tuiles-chiffres": (4, 10), "A14/mot-geant-et-produit": (4, 10),
+                 "A14/theme-et-matieres": (4, 10), "A14/grille-icones": (3, 12)}
+APPAREILS = {"telephone", "tablette", "portable", "boitier"}
+# Archétypes qui sont toujours un moment visuel fort.
+MOMENTS_VISUELS = {"A5", "A9", "A10", "A13", "A14", "A18"}
+TYPES_VISUEL = {"capture", "photo", "produit", "objet", "icone", "logo", "schema", "matiere", "pictogrammes",
+                "vignettes", "video", "image"}
+TYPE_VISUEL_ALIASES = {"screenshot": "capture", "ecran": "capture", "interface": "capture", "product": "produit",
+                       "rendu": "produit", "object": "objet", "icon": "icone", "diagram": "schema", "texture": "matiere",
+                       "pictogramme": "pictogrammes", "pictograms": "pictogrammes", "vignette": "vignettes",
+                       "thumbnails": "vignettes", "rush": "video"}
+VISUEL_CHAMPS = {"type", "brief", "fond_transparent", "angle", "resolution_min", "format", "chemin"}
 MAX_WORDS = 10
 SPEECH_WPM_MAX = 170
 SPEECH_WPM_MIN = 110
@@ -73,6 +153,8 @@ VALIDER_INTERDITS = [
                             r"journées?|jours?|semaines?|mois|ans?|années?|seconds?|hours?|days?|weeks?|months?|years?)\b", re.I)),
 ]
 NESTED_RE = re.compile(r"\[(?:(?:À|A) (?:VALIDER|FOURNIR)|TO (?:VALIDATE|PROVIDE))[^\]]*\[", re.I)
+# Marqueur ouvert jamais fermé : le rendu l'afficherait tel quel. Un \n dans un marqueur fermé est permis.
+UNCLOSED_RE = re.compile(r"\[(?:(?:À|A) (?:VALIDER|FOURNIR)|TO (?:VALIDATE|PROVIDE|CONFIRM))[^\]\[]*$", re.I)
 # « les deux » n'est pas un chiffre, ni un sigle comme B2B ou B2C
 VALIDER_PERMIS_RE = re.compile(r"\b(?:tous|toutes|les|nos|vos)\s+deux\b|\bboth\b|\b[A-Za-z]+\d+[A-Za-z]\w*", re.I)
 TU_RE = re.compile(r"(?<![\w’'])(tu|te|toi|ton|ta|tes)(?![\w’'])|(?<![\w’'])t['’](?=[a-zàâäéèêëîïôöùûüyh])", re.I)
@@ -234,6 +316,114 @@ def resolve_public(meta, table):
     return "+".join(keys), row, known
 
 
+def resolve_variante(arch, variante):
+    """« ARCH/variante » que le moteur dessine, ou "" si la variante est inconnue pour cet archétype."""
+    v = norm_key(variante)
+    if v in VARIANTES.get(arch, []):
+        return arch + "/" + v
+    for fam in FAMILLES_LIBRES:
+        if v in VARIANTES[fam]:
+            return fam + "/" + v
+    return ""
+
+
+def img_path_of(slide):
+    img = slide.get("image")
+    if isinstance(img, str):
+        return img
+    return text_of(img.get("chemin")) if isinstance(img, dict) else ""
+
+
+def has_any_image(slide):
+    """La slide porte-t-elle une image (principale, liste, fond, visuel décrit ou image d'élément) ?"""
+    if img_path_of(slide) or slide.get("images") or slide.get("image_fond") or slide.get("visuel") is not None:
+        return True
+    t = slide.get("textes") or {}
+    for key in ("tuiles", "elements", "logos", "offres", "coloris", "jalons", "pictos"):
+        for x in as_list(t.get(key)) if isinstance(t, dict) else []:
+            if (isinstance(x, dict) and x.get("image")) or (key == "pictos" and isinstance(x, str) and x):
+                return True
+    return False
+
+
+def element_images(slide):
+    """(chemin, libellé) des images portées par la slide hors slide.image : listes, éléments, logos annexes."""
+    out = []
+    for x in as_list(slide.get("images")):
+        p = x if isinstance(x, str) else text_of(x.get("chemin")) if isinstance(x, dict) else ""
+        if p:
+            out.append((p, text_of(x.get("attendu")) if isinstance(x, dict) else ""))
+    for key in ("logo_invite", "logo_systeme", "logo_final"):
+        if isinstance(slide.get(key), str) and slide.get(key):
+            out.append((slide[key], key))
+    t = slide.get("textes") or {}
+    if not isinstance(t, dict):
+        return out
+    for key in ("elements", "offres", "coloris", "jalons"):
+        for x in as_list(t.get(key)):
+            if isinstance(x, dict) and x.get("image"):
+                out.append((text_of(x["image"]), text_of(x.get("titre") or x.get("nom"))))
+    for x in as_list(t.get("pictos")):
+        p = x if isinstance(x, str) else text_of(x.get("image") or x.get("chemin")) if isinstance(x, dict) else ""
+        if p:
+            out.append((p, "pictogramme"))
+    for col in as_list(t.get("colonnes")):
+        for lg in as_list(col.get("logos")) if isinstance(col, dict) else []:
+            if isinstance(lg, dict) and lg.get("image"):
+                out.append((text_of(lg["image"]), text_of(lg.get("nom"))))
+    return out
+
+
+def norm_type_visuel(t):
+    k = norm_key(t)
+    return TYPE_VISUEL_ALIASES.get(k, k)
+
+
+def resolution_ok(r):
+    """1920 × 1080, [1920, 1080], {"largeur": 1920, "hauteur": 1080}, 2000 (grand côté) ou « 2000 px de haut »."""
+    if isinstance(r, bool):
+        return False
+    if isinstance(r, (int, float)):
+        return r > 0
+    if isinstance(r, list):
+        return len(r) == 2 and all(isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 for x in r)
+    if isinstance(r, dict):
+        vals = [r.get(k) for k in ("largeur", "hauteur", "width", "height", "l", "h") if r.get(k) is not None]
+        return bool(vals) and all(isinstance(x, (int, float)) and x > 0 for x in vals)
+    return bool(re.search(r"\d{2,5}", text_of(r)))
+
+
+def check_visuel(rep, where, v):
+    """slide.visuel : un objet (ou une liste d'objets) qui décrit le visuel à préparer."""
+    if v is None:
+        return
+    items = v if isinstance(v, list) else [v]
+    for k, it in enumerate(items):
+        lab = "slide.visuel" if len(items) == 1 else "slide.visuel[%d]" % (k + 1)
+        if not isinstance(it, dict):
+            rep.err(where, "%s : objet attendu, {type, brief, fond_transparent, angle, resolution_min}." % lab)
+            continue
+        inconnus = sorted(set(it) - VISUEL_CHAMPS)
+        if inconnus:
+            rep.warn(where, "%s : champ(s) inconnu(s) %s (type, brief, fond_transparent, angle, resolution_min, format, chemin)." % (
+                lab, ", ".join(inconnus)))
+        if not text_of(it.get("type")).strip():
+            rep.warn(where, "%s sans type : capture, photo, produit, objet, icone, logo, schema, matiere, pictogrammes, "
+                            "vignettes ou video." % lab)
+        elif norm_type_visuel(it.get("type")) not in TYPES_VISUEL:
+            rep.warn(where, "%s : type « %s » inconnu (capture, photo, produit, objet, icone, logo, schema, matiere, "
+                            "pictogrammes, vignettes, video)." % (lab, it.get("type")))
+        if not text_of(it.get("brief")).strip():
+            rep.warn(where, "%s sans brief : dis ce qu'il doit montrer, son cadrage et sa lumière." % lab)
+        if "fond_transparent" in it and not isinstance(it.get("fond_transparent"), bool):
+            rep.warn(where, "%s.fond_transparent « %s » : true ou false attendu." % (lab, it.get("fond_transparent")))
+        if "angle" in it and not isinstance(it.get("angle"), str):
+            rep.warn(where, "%s.angle : texte attendu (face, trois-quarts, profil, dessus…)." % lab)
+        if it.get("resolution_min") is not None and not resolution_ok(it.get("resolution_min")):
+            rep.warn(where, "%s.resolution_min « %s » : écris « 1920 × 1080 », [1920, 1080] ou un nombre de pixels." % (
+                lab, it.get("resolution_min")))
+
+
 def note_segments(slide, default_speaker):
     n = slide.get("notes")
     if n is None or n == "":
@@ -311,6 +501,8 @@ def check(deck, deck_dir, brouillon=False):
     rep = Report()
     archetypes = {str(a.get("id", "")).upper(): a for a in load_json(os.path.join(DATA, "archetypes.json"), [])}
     archetypes["AF"] = {"id": "AF", "nom": "À fournir"}
+    for fam, nom in (("FIN", "Slide finale"), ("COLORIS", "Gamme de coloris"), ("FRISE", "Frise")):
+        archetypes[fam] = {"id": fam, "nom": nom}
     table = load_json(os.path.join(DATA, "publics-exigences.json"), {"defaut": "defaut", "publics": {}, "prudence": {}})
     if not archetypes or len(archetypes) < 2:
         rep.warn("deck", "archetypes.json introuvable : contrôle des archétypes limité.")
@@ -388,8 +580,9 @@ def check(deck, deck_dir, brouillon=False):
             r = contrast(a, b)
             if r < mini:
                 rep.warn("theme", "Contraste faible : %s = %.1f:1 (%.1f:1 au moins)." % (label, r, mini))
-    if "point_accent" in theme and not isinstance(theme.get("point_accent"), bool):
-        rep.warn("theme", "theme.point_accent « %s » : true ou false attendu." % theme.get("point_accent"))
+    for cle in ("point_accent", "finale_accent"):
+        if cle in theme and not isinstance(theme.get(cle), bool):
+            rep.warn("theme", "theme.%s « %s » : true ou false attendu." % (cle, theme.get(cle)))
     pol = theme.get("polices") or {}
     if not pol.get("titre") or not pol.get("texte"):
         rep.warn("theme", "Polices titre et texte non précisées : Arial par défaut.")
@@ -421,6 +614,8 @@ def check(deck, deck_dir, brouillon=False):
     tu_total = vous_total = 0
     superlatifs_ecran = []
     fonds = []                    # (where, fond, bloc) : contrôle des changements de fond
+    sequence = []                 # (where, archétype, variante) : rythme des compositions
+    blocs = {}                    # bloc -> {n, moment, where} : un moment visuel par bloc
     for i, s in enumerate(slides):
         if not isinstance(s, dict):
             rep.err("slide %d" % (i + 1), "Slide illisible (objet attendu).")
@@ -439,15 +634,49 @@ def check(deck, deck_dir, brouillon=False):
             rep.err(where, "« textes » doit être un objet.")
             t = {}
         if arch not in archetypes:
-            rep.err(where, "Archétype inconnu « %s » (A1 à A25 ou AF)." % s.get("archetype"))
+            rep.err(where, "Archétype inconnu « %s » (A1 à A25, FIN, COLORIS, FRISE ou AF)." % s.get("archetype"))
         elif arch in SCENES:
             rep.warn(where, "%s est un plan de scène (vidéo) : en slide, il devient une photo plein cadre." % arch)
-        elif arch == "A11":
-            rep.warn(where, "A11 (schéma à bloc surligné) est rendu comme A9 : visuel et légende.")
+        elif arch == "A11" and not s.get("variante"):
+            rep.warn(where, "A11 sans variante est rendu comme A9 (visuel et légende) : prends une variante "
+                            "(legende-laterale, plusieurs-blocs…) pour le schéma au trait et son bloc allumé.")
         fond = text_of(s.get("fond")).lower()
         if fond not in FONDS:
             rep.err(where, "fond « %s » : sombre, clair, image ou accent." % s.get("fond"))
         fonds.append((where, fond, text_of(s.get("bloc")).strip()))
+
+        # Variante de composition (designs.md) et visuel à préparer
+        var_raw = s.get("variante")
+        var_cle = ""                      # « ARCH/variante » réellement dessinée
+        if var_raw not in (None, ""):
+            if not isinstance(var_raw, str):
+                rep.err(where, "slide.variante : le nom d'une variante attendu (voir designs.md).")
+            elif arch in archetypes:
+                var_cle = resolve_variante(arch, var_raw)
+                if not var_cle:
+                    propres = VARIANTES.get(arch, [])
+                    rep.err(where, "Variante « %s » inconnue pour %s%s (voir designs.md)." % (
+                        var_raw, arch, " : " + ", ".join(propres) if propres else
+                        " : cet archétype n'a pas de variante propre ; seules celles de FIN, COLORIS et FRISE s'y posent"))
+        elif arch in FAMILLES_LIBRES:
+            var_cle = arch + "/" + VARIANTES[arch][0]
+        if not var_cle:
+            var_cle = arch + "/"
+        check_visuel(rep, where, s.get("visuel"))
+        if var_cle in VARIANTES_IMAGE and not var_cle.endswith("/") and not has_any_image(s) and arch not in IMAGE_EXPECTED:
+            rep.warn(where, "Variante « %s » sans image : repli dessiné à la place (précise image.chemin, image.attendu "
+                            "et slide.visuel)." % var_cle.split("/")[1])
+        if "profondeur" in s and not isinstance(s.get("profondeur"), bool):
+            rep.warn(where, "slide.profondeur « %s » : true ou false attendu (false retire ombre et halo)." % s.get("profondeur"))
+        if s.get("appareil") and norm_key(s.get("appareil")) not in APPAREILS:
+            rep.warn(where, "slide.appareil « %s » : telephone, tablette, portable ou boitier." % s.get("appareil"))
+        sequence.append((where, arch, arch + "/" + ORIGINE[arch] if var_cle == arch + "/" and arch in ORIGINE else var_cle))
+        bloc_nom = text_of(s.get("bloc")).strip()
+        if bloc_nom:
+            b = blocs.setdefault(bloc_nom, {"n": 0, "moment": False, "where": where})
+            b["n"] += 1
+            if arch in MOMENTS_VISUELS or var_cle in VARIANTES_IMAGE:
+                b["moment"] = True
         et = s.get("etape")
         if et not in (None, ""):
             try:
@@ -457,7 +686,7 @@ def check(deck, deck_dir, brouillon=False):
                 rep.warn(where, "etape « %s » : numéro de 1 à 16 attendu." % et)
 
         # Champs obligatoires
-        for field in REQUIRED.get(arch, []):
+        for field in REQUIRED_VARIANTE.get(var_cle, REQUIRED.get(arch, [])):
             v = t.get(field)
             if v is None or (isinstance(v, (str, list)) and len(v) == 0):
                 rep.err(where, "Champ textes.%s manquant pour %s." % (field, arch))
@@ -466,8 +695,9 @@ def check(deck, deck_dir, brouillon=False):
             for o in offres:
                 if isinstance(o, dict) and not (o.get("nom") and o.get("prix")):
                     rep.err(where, "Slide de prix : chaque offre a besoin d'un nom et d'un prix.")
-            if len(as_list(t.get("offres"))) > 2:
-                rep.warn(where, "Slide de prix : deux offres au plus.")
+            max_offres = 4 if var_cle == "A19/gamme-alignee" else 2
+            if len(as_list(t.get("offres"))) > max_offres:
+                rep.warn(where, "Slide de prix : %s au plus." % ("quatre produits" if max_offres == 4 else "deux offres"))
 
         # Images
         img = s.get("image")
@@ -479,7 +709,7 @@ def check(deck, deck_dir, brouillon=False):
                     img_path, " (attendu : %s)" % attendu if attendu else " ; précise image.attendu"))
             elif not re.search(r"\.(png|jpe?g|gif)$", img_path, re.I):
                 rep.warn(where, "Image « %s » : PNG, JPEG ou GIF attendu." % img_path)
-        elif arch in IMAGE_EXPECTED:
+        elif arch in IMAGE_EXPECTED and not (arch == "A11" and var_cle not in ("A11/", "A11/carte-annotee")):
             rep.warn(where, "Image attendue pour %s%s : placeholder dessiné à la place." % (
                 arch, " (attendu : %s)" % attendu if attendu else " ; précise image.chemin et image.attendu"))
         if fond == "image" and arch not in IMAGE_EXPECTED and not s.get("image_fond") and (arch in CONTENT_IMAGE or not img_path):
@@ -487,11 +717,19 @@ def check(deck, deck_dir, brouillon=False):
         for tile in as_list(t.get("tuiles")):
             if isinstance(tile, dict) and tile.get("image") and not os.path.exists(os.path.join(deck_dir, text_of(tile["image"]))):
                 rep.warn(where, "Image de tuile « %s » introuvable." % tile["image"])
+        manquantes = [p for p, _ in element_images(s) if not os.path.exists(os.path.join(deck_dir, p))]
+        if manquantes:
+            rep.warn(where, "Image%s à fournir : %s : repli dessiné à la place." % (
+                "s" if len(manquantes) > 1 else "", ", ".join("« %s »" % p for p in manquantes[:6]) + (" …" if len(manquantes) > 6 else "")))
+        sans_logo = []
         for lg in as_list(t.get("logos")):
             if isinstance(lg, dict) and lg.get("image") and not os.path.exists(os.path.join(deck_dir, text_of(lg["image"]))):
                 rep.warn(where, "Logo « %s » introuvable." % lg["image"])
             elif not (isinstance(lg, dict) and lg.get("image")):
-                rep.warn(where, "Logo « %s » sans image : cadre gris à la place." % (lg.get("nom") if isinstance(lg, dict) else lg))
+                sans_logo.append(text_of(lg.get("nom") if isinstance(lg, dict) else lg) or "?")
+        if sans_logo:
+            rep.warn(where, "%d logo%s sans image : %s ; le nom s'écrit en texte à la place." % (
+                len(sans_logo), "s" if len(sans_logo) > 1 else "", ", ".join(sans_logo[:5]) + (" …" if len(sans_logo) > 5 else "")))
 
         # Mots à l'écran
         counted, extra = visible_texts(arch, t)
@@ -510,15 +748,17 @@ def check(deck, deck_dir, brouillon=False):
                 rep.warn(where, "Phrase-thèse en %d phrases : plus d'une idée ?" % len(phrases))
         if arch in ("A3", "A7", "A8"):
             lignes = as_list(t.get("lignes"))
-            if len(lignes) > 6:
-                rep.warn(where, "%d lignes : six au plus." % len(lignes))
+            max_lignes = 18 if var_cle == "A7/deux-colonnes" else 6
+            if len(lignes) > max_lignes:
+                rep.warn(where, "%d lignes : %s au plus." % (len(lignes), "dix-huit" if max_lignes == 18 else "six"))
             for l in lignes:
                 if len(words(l)) > 6:
                     rep.warn(where, "Ligne longue (%d mots) : « %s »." % (len(words(l)), text_of(l)[:60]))
         if arch == "A14":
             tuiles = as_list(t.get("tuiles"))
-            if tuiles and not 4 <= len(tuiles) <= 8:
-                rep.warn(where, "Bento : 4 à 8 tuiles autour du titre (%d)." % len(tuiles))
+            lo, hi = TUILES_BORNES.get(var_cle, (4, 8))
+            if tuiles and not lo <= len(tuiles) <= hi:
+                rep.warn(where, "Bento : %d à %d tuiles autour du centre (%d)." % (lo, hi, len(tuiles)))
             for tile in tuiles:
                 tw = sum(len(words(tile.get(k))) for k in ("chiffre", "titre", "texte")) if isinstance(tile, dict) else len(words(tile))
                 if tw > 6:
@@ -536,7 +776,7 @@ def check(deck, deck_dir, brouillon=False):
         screen = unvalider(" ".join(counted + extra))
         chiffree = (arch == "A5" and t.get("chiffre")) or arch == "A6" or \
                    (arch == "A14" and any(isinstance(x, dict) and x.get("chiffre") for x in as_list(t.get("tuiles")))) or \
-                   (arch not in ("A19", "A20") and STAT_RE.search(screen))
+                   (arch not in ("A19", "A20") and (t.get("chiffre") or STAT_RE.search(screen)))
         if chiffree and not has_source:
             level = pub.get("source_chiffre", "recommandee")
             if level == "exigee":
@@ -614,6 +854,9 @@ def check(deck, deck_dir, brouillon=False):
                 rep.err(where, "Marqueurs imbriqués dans « %s » : écris-les côte à côte, "
                                "par exemple [À VALIDER : Disponible dès le] [À FOURNIR : date]." % x[:70])
                 break
+            if UNCLOSED_RE.search(x):
+                rep.err(where, "Marqueur sans « ] » final dans « %s » : il s'afficherait tel quel." % re.sub(r"\s+", " ", x)[:70])
+                break
 
         # Propositions [À VALIDER] : jamais un chiffre, un prix, une date, un témoignage, un logo, une source
         props = []
@@ -639,7 +882,7 @@ def check(deck, deck_dir, brouillon=False):
             jamais.append(("prix", [o.get("prix") for o in (as_list(t.get("offres")) or [t]) if isinstance(o, dict)], "un prix"))
         if arch == "A20":
             jamais.append(("date", [t.get("titre")], "une date"))
-        if arch in ("A5", "A6", "A14"):
+        if arch in ("A5", "A6", "A14") or t.get("chiffre"):
             jamais.append(("chiffre", [t.get("chiffre")] + [b.get(k) for b in as_list(t.get("barres")) + as_list(t.get("tuiles"))
                                                             if isinstance(b, dict) for k in ("chiffre", "etiquette")], "un chiffre"))
         for champ, vals, quoi in jamais:
@@ -723,6 +966,17 @@ def check(deck, deck_dir, brouillon=False):
         if {f1, f2} == {"sombre", "clair"} and (b1 == b2 or not b1 or not b2):
             rep.warn(w2, "Fond %s juste après une slide %s du même bloc : garde le fond du deck, "
                          "et ne change de fond qu'entre deux blocs." % (f2, "claire" if f1 == "clair" else f1))
+    # Rythme : pas trois fois de suite la même composition ; un moment visuel par bloc.
+    for k in range(2, len(sequence)):
+        (w0, a0, v0), (w1, a1, v1), (w2, a2, v2) = sequence[k - 2], sequence[k - 1], sequence[k]
+        if a2 and a2 in archetypes and (a0, v0) == (a1, v1) == (a2, v2):
+            nom_v = v2.split("/", 1)[1] if "/" in v2 else ""
+            rep.warn(w2, "Trois slides de suite en %s, %s : change de composition ou de variante (designs.md, « Choisir un design »)." % (
+                a2, "variante %s" % nom_v if nom_v else "sans variante"))
+    for nom, b in blocs.items():
+        if b["n"] >= 2 and not b["moment"]:
+            rep.warn("bloc « %s »" % nom, "Aucun moment visuel (A5, A9, A10, A13, A14, A18 ou variante à image) sur %d slides : "
+                                          "prévois-en un (designs.md, « Choisir un design »)." % b["n"])
     if pub.get("superlatifs") == "moderes":
         par_bloc = {}
         for bloc, _ in superlatifs_ecran:

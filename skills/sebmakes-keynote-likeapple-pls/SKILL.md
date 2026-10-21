@@ -45,7 +45,7 @@ Moment fort à garder pour la fin : [lequel]
 Matériaux : [captures, photos, logos, vidéos : chemins ou pièces jointes]
 ```
 
-**Lire l'habillage.** Avec un lien, lis-le avec les outils de la session : Figma (`get_variable_defs`, `get_screenshot`, après la skill Figma que ces outils demandent), Notion (lecture de la page), page web (WebFetch), PDF ou fichier de charte (Read). Extrais les HEX des rôles de `theme` (`fond_sombre`, `fond_clair`, `texte`, `texte_secondaire`, `accent`, `accent2`) et les polices de titre et de texte. Si le lien est illisible (outil absent, accès refusé), dis-le et demande les HEX. Si un rôle manque (pas de fond sombre, par exemple), dérive-le de sa palette et montre-le-lui. Si la charte nomme une police Apple (SF, New York), propose une linéale libre de droits à la place et dis pourquoi. Une couleur que l'utilisateur n'a pas choisie ne passe jamais en silence.
+**Lire l'habillage.** Avec un lien, lis-le avec les outils de la session : Figma (`get_variable_defs`, `get_screenshot`, après la skill Figma que ces outils demandent), Notion (lecture de la page), page web (WebFetch), PDF ou fichier de charte (Read). Extrais les HEX des rôles de `theme` (`fond_sombre`, `fond_clair`, `texte`, `texte_secondaire`, `accent`, `accent2`) et les polices de titre et de texte. Si le lien est illisible (outil absent, accès refusé), dis-le et demande les HEX. Si un rôle manque (pas de fond sombre, par exemple), dérive-le de sa palette et montre-le-lui. Si la charte nomme une police Apple (SF, New York), propose une linéale libre de droits à la place et dis pourquoi. Si elle plafonne la surface d'accent (« jaune ≤ 10 % »), mets `theme.finale_accent` à `false` : sinon la slide finale passe en pleine page d'accent. Une couleur que l'utilisateur n'a pas choisie ne passe jamais en silence.
 
 **Lire le public.** Ouvre `references/publics.md` : le tableau du §3, la fiche du public (§4), et le §5 si le public est mixte ou inconnu.
 
@@ -67,13 +67,31 @@ Montre le conducteur **avant** de produire quoi que ce soit, en un tableau court
 
 Ajoute dessous trois lignes au plus : le réglage retenu pour ce public (sources, graphiques, concurrents, « jusqu'à »), en une phrase, pour qu'il puisse le relâcher ; la palette et les polices retenues ; ce qui manque encore. Attends son accord et ajuste. Changer une ligne du conducteur coûte une minute ; refaire vingt slides coûte bien plus.
 
-## Étape 3 — Direction artistique, puis deck.json
+## Étape 3 — Design slide par slide
+
+Lis `references/designs.md` : la partie « Choisir un design », puis la fiche de chaque archétype du conducteur. Pour chaque slide, décide :
+
+- **l'archétype et la variante.** L'archétype vient de l'étape d'annonce (`grammaire.md` §4.1, colonne Visuel). La variante vient du contenu et des visuels que l'utilisateur a, ou peut avoir : une capture appelle un appareil, une photo une variante sur image ; sans rien, une variante sans visuel, jamais un cadre vide. La table « Les variantes du moteur » dit ce que chacune demande.
+- **le rythme.** Varie les designs d'un bloc à l'autre, et jamais trois fois de suite la même composition (même archétype, même variante). Deux blocs n'ouvrent pas de la même façon.
+- **un moment visuel fort par bloc**, au moins : un chiffre géant (A5), un objet ou une interface (A9, A10), le produit seul (A13), le bento (A14), une photo plein cadre (A18) ou une variante à image.
+- **le visuel à préparer**, d'après le §7 de la fiche : son type, un brief (ce qu'il montre, son cadrage, sa lumière), fond transparent ou non, l'angle, la résolution minimale.
+
+Montre le résultat en un tableau court, à la suite du conducteur validé, une ligne par slide :
+
+| # | Bloc | Design | Ce qu'on voit | Visuel |
+|---|---|---|---|---|
+| 5 | [Nouveauté 1] | carte-titre sur photo | le nom, en blanc, sur une photo calme du lieu | photo à fournir |
+| 6 | [Nouveauté 1] | capture dans un téléphone | l'écran de suivi, de face, seul | capture à fournir |
+
+Livre ensuite la **liste des visuels à préparer** : un brief par visuel, slide par slide (type, ce qu'il montre, format, fond transparent, angle, résolution). L'utilisateur lance ainsi ses captures et ses photos pendant que tu écris le deck. N'attends pas les visuels : tant qu'il en manque un, le moteur dessine un repli neutre, sans chiffre ni logo. Après le contrôle, `export_script.js --visuels` réécrit cette liste d'après `deck.json` : c'est elle que tu livres à la fin.
+
+## Étape 4 — Direction artistique, puis deck.json
 
 **Direction artistique d'abord.** Lis `references/style-visuel.md` avant d'écrire le moindre texte : il montre à quoi ressemble une slide réussie. Vise l'allure d'une keynote :
 
 - des titres très courts et très gros : un mot ou une phrase par écran, jamais un paragraphe ;
 - un surtitre d'accent (`textes.surtitre`, 1 à 3 mots) là où il situe le moment, et le point final du titre en accent ;
-- au moins un moment visuel par bloc : un chiffre géant (A5), une interface (A9, A10), une grille de récap (A14) ;
+- les designs de l'étape 3 : la variante de chaque slide, et le moment visuel fort de chaque bloc ;
 - quand une capture manque, une interface schématique, que le moteur dessine d'après `image.attendu` ;
 - une slide finale forte : un mot, très gros ;
 - le même fond pour toutes les slides, celui du reste du deck ; on n'en change qu'entre deux blocs ;
@@ -81,9 +99,10 @@ Ajoute dessous trois lignes au plus : le réglage retenu pour ce public (sources
 
 Lis ensuite `references/deck-spec.md`. Crée un dossier de travail pour la présentation (dans le dossier courant, sauf si l'utilisateur en nomme un autre), avec `deck.json` et un sous-dossier `images/` où tu copies ses matériaux.
 
-Remplis `meta` (titre, langue, `registre` envers le public et `registre_intervenants` entre intervenants, public, `duree_min`, format, `"ratio": "16:9"`, variante, et `contexte` : `direct` en salle ou en visio, `preenregistre` en vidéo), `theme` (étape 1) et `intervenants`. Puis, pour chaque slide du conducteur :
+Remplis `meta` (titre, langue, `registre` envers le public et `registre_intervenants` entre intervenants, public, `duree_min`, format, `"ratio": "16:9"`, variante d'annonce, et `contexte` : `direct` en salle ou en visio, `preenregistre` en vidéo), `theme` (étape 1) et `intervenants`. Puis, pour chaque slide du conducteur :
 
-- **`archetype`** : celui de l'étape d'annonce (`grammaire.md` §4.1, colonne Visuel), choisi dans le catalogue du §6. Une idée par écran. Pas de slide `AF` : prends l'archétype prévu et remplis-le.
+- **`archetype`** et **`variante`** : ceux de l'étape 3. Écris toujours la variante : sans elle, le moteur garde un rendu plus simple. Une idée par écran. Pas de slide `AF` : prends l'archétype prévu et remplis-le.
+- **`visuel`** : le brief du visuel à préparer, `{type, brief, fond_transparent, angle, resolution_min}`, sur chaque slide qui attend une image (étape 3).
 - **`textes`** : 10 mots au plus, recomptés après traduction. Le nom à retenir, seul ; `*mot*` pour l'accent ; `surtitre` pour situer. Un chiffre, un prix ou une date à l'écran vient de l'utilisateur, sinon `[À FOURNIR : libellé]` en 3 mots au plus, et la consigne complète dans `a_fournir`.
 - **Brief mince : propose, ne laisse pas de trou.** Rédige des propositions plausibles pour les formulations, la thèse, les problèmes vécus, les descriptions de fonctions et le script, à partir de ce que le brief dit du produit et du public, et marque chacune `[À VALIDER : …]`. À l'écran, elle s'affiche comme du vrai contenu ; dans les notes, elle reste signalée. Jamais de proposition pour un chiffre, un prix, une date, un nom de client, un logo, un témoignage ou une capture réelle : ceux-là restent `[À FOURNIR]`. Une proposition ne contient aucun nombre, même écrit en lettres.
 - **`source`** : chaque chiffre porte la sienne. Le moteur l'affiche selon le public (sous le chiffre, en renvoi ou au carton final) ; `meta.affichage_source` ne sert qu'à forcer un autre choix.
@@ -94,20 +113,20 @@ Remplis `meta` (titre, langue, `registre` envers le public et `registre_interven
 
 En anglais : `"langue": "en"`, gabarits EN, marqueurs `[TO VALIDATE: …]` et `[TO PROVIDE: …]`, pas de `registre` ; le ton familier ou formel se règle dans les formules de relais (§7.7). Tout ce que l'orateur lit est en anglais, notes comprises.
 
-`assets/exemple-deck.json` montre un deck complet de 16 slides pour 10 minutes (fictif), avec quelques `[À VALIDER]`, un `[À FOURNIR]` court et une image absente : regarde-le pour le niveau de détail du script et l'usage des marqueurs. N'en reprends pas le contenu.
+`assets/exemple-deck.json` montre un deck complet de 16 slides pour 10 minutes (fictif), avec des variantes, des `slide.visuel`, quelques `[À VALIDER]`, un `[À FOURNIR]` court et une image absente : regarde-le pour le niveau de détail du script, des briefs et des marqueurs. N'en reprends pas le contenu.
 
-## Étape 4 — Contrôle
+## Étape 5 — Contrôle
 
 ```bash
 python3 "$SKILL/scripts/check_deck.py" deck.json --brouillon   # pendant la rédaction
 python3 "$SKILL/scripts/check_deck.py" deck.json               # avant de livrer
 ```
 
-Le contrôle porte les règles du public, du registre, du minutage, du débit du script, du fond, des marqueurs et des 10 mots. Un deck qui passe tient donc ce que le conducteur a promis. Corrige `deck.json` et relance jusqu'à **zéro erreur bloquante en mode `--brouillon`**. Sa section « À VALIDER » liste les propositions : garde-la pour la livraison.
+Le contrôle porte les règles du public, du registre, du minutage, du débit du script, du fond, des marqueurs, des 10 mots, des variantes et du rythme des designs. Un deck qui passe tient donc ce que le conducteur a promis. Corrige `deck.json` et relance jusqu'à **zéro erreur bloquante en mode `--brouillon`**. Sa section « À VALIDER » liste les propositions : garde-la pour la livraison.
 
 Sans `--brouillon`, les `[À FOURNIR]` restants bloquent, et c'est voulu : la skill n'invente rien pour les faire disparaître. Redemande-les à l'utilisateur, en une seule liste. S'il ne les a pas, livre en le disant : c'est un brouillon à compléter, pas une version à présenter. Pour chaque avertissement, corrige, ou garde-le en connaissance de cause et dis pourquoi à la livraison.
 
-## Étape 5 — Rendu
+## Étape 6 — Rendu
 
 Construis toujours le .pptx et l'aperçu. Ils sont le livrable pour PowerPoint, Keynote et Canva, et le contrôle pour Figma Slides et la vidéo.
 
@@ -128,20 +147,20 @@ Puis lis **seulement** le fichier du format choisi :
 | Figma Slides | `references/formats/figma-slides.md` | un fichier Figma Slides construit avec `use_figma` (skills `figma-use` et `figma-use-slides` d'abord) ; le .pptx en secours |
 | Vidéo | `references/formats/video.md` | selon la voie qu'il choisit (MP4, deck navigable, export) ; la skill écrit le script mais ne produit pas de voix |
 
-## Étape 6 — Contrôle visuel, puis livraison
+## Étape 7 — Contrôle visuel, puis livraison
 
 **Regarde le résultat avant de le donner.** Le contrôle ne voit pas un titre coupé en trois lignes ni un accent illisible sur une photo.
 
 - Ouvre `apercu.html#qa` (chemin absolu en `file://`) avec l'outil de navigateur de la session. Le bandeau du haut dit « Aucun débordement détecté » ou liste les slides qui débordent ; `window.__deckQA()` rend la même liste.
-- Fais une capture d'au moins quatre slides : l'ouverture, une slide-chiffre, la plus chargée et la clôture. Vérifie : une idée par écran, des titres gros qui tiennent le centre, un moment visuel par bloc, le même fond partout, aucun cadre vide, aucun mot de l'atelier (archétype, étape, consigne), des `[À FOURNIR]` courts, estompés et soulignés, les couleurs du thème, rien qui rappelle Apple.
+- Fais une capture d'au moins quatre slides : l'ouverture, une slide-chiffre, la plus chargée et la clôture. Vérifie : une idée par écran, des titres gros qui tiennent le centre, un moment visuel par bloc, le même fond partout, aucun cadre vide, aucun mot de l'atelier (archétype, étape, consigne), des `[À FOURNIR]` courts, estompés et soulignés (entre crochets pour Canva), les couleurs du thème, rien qui rappelle Apple.
 - Pour Figma Slides, Canva ou la vidéo, regarde aussi le rendu final avec les outils du format (capture Figma, relecture du design, aperçu HyperFrames).
 - Sans navigateur, appuie-toi sur la liste « À vérifier » de `build_deck.js` et demande à l'utilisateur d'ouvrir l'aperçu.
-- Un texte déborde : coupe des mots dans `deck.json`, puis refais les étapes 4 et 5. Ne réduis pas la taille : un texte qui ne tient pas est un texte trop long.
+- Un texte déborde : coupe des mots dans `deck.json`, puis refais les étapes 5 et 6. Ne réduis pas la taille : un texte qui ne tient pas est un texte trop long.
 
-**Écris le script complet** dans `script.md`, slide par slide, avec intervenants, relais, minutage, apparitions, sources, propositions à valider et ce qui reste à fournir. Ajoute `--etapes` pour la liste des apparitions (le .pptx les contient déjà ; la liste sert à les vérifier, ou à les poser dans Figma Slides et Canva), et `--srt sortie.srt` pour des sous-titres :
+**Écris le script complet** dans `script.md`, slide par slide, avec intervenants, relais, minutage, apparitions, sources, propositions à valider et ce qui reste à fournir. Ajoute `--visuels visuels.md` pour la liste des visuels à préparer (d'après `slide.visuel` et `image.attendu`), `--etapes` pour la liste des apparitions (le .pptx les contient déjà ; la liste sert à les vérifier, ou à les poser dans Figma Slides et Canva), et `--srt sortie.srt` pour des sous-titres :
 
 ```bash
-node "$SKILL/scripts/export_script.js" deck.json --md script.md --etapes
+node "$SKILL/scripts/export_script.js" deck.json --md script.md --visuels visuels.md --etapes
 ```
 
 **Livre** en un message court :
@@ -150,7 +169,8 @@ node "$SKILL/scripts/export_script.js" deck.json --md script.md --etapes
 2. `script.md`, le script complet (il est aussi dans les notes de chaque slide) ;
 3. **à valider** : les propositions `[À VALIDER]`, slide par slide (section « À VALIDER » du contrôle), à accepter ou à corriger une à une ;
 4. **à fournir** : les `[À FOURNIR]` restants et leur consigne, les images à fournir et les fonctions d'intervenants inconnues, slide par slide (lignes « Reste à fournir » et « Image à fournir » du contrôle sans `--brouillon`), ou « aucun » ;
-5. ce qui reste à faire à la main : les morphings et les apparitions hors de l'ordre de lecture (le moteur pose les fondus), les polices à installer, et le réglage du public rappelé en une phrase.
+5. **les visuels à préparer** : `visuels.md`, un brief par visuel, slide par slide, ou « aucun » ;
+6. ce qui reste à faire à la main : les morphings et les apparitions hors de l'ordre de lecture (le moteur pose les fondus), les polices à installer, et le réglage du public rappelé en une phrase.
 
 ## Rappels
 
@@ -164,16 +184,17 @@ node "$SKILL/scripts/export_script.js" deck.json --md script.md --etapes
 
 | Fichier | Quand |
 |---|---|
-| `references/grammaire.md` | À chaque usage. §1 à §4 et §9 pour le conducteur (étape 2) ; la direction artistique et §5 à §8 pendant la rédaction (étape 3). |
-| `references/style-visuel.md` | À l'étape 3, avant d'écrire les textes : l'allure des slides, que le moteur suit. |
+| `references/grammaire.md` | À chaque usage. §1 à §4 et §9 pour le conducteur (étape 2) ; §4.1 et §6 pour le design (étape 3) ; la direction artistique et §5 à §8 pendant la rédaction (étape 4). |
+| `references/designs.md` | À l'étape 3 : « Choisir un design », puis la fiche de chaque archétype du conducteur (variantes, contenu visuel, profondeur, brief du visuel et repli). À l'étape 4 pour écrire `slide.variante` et `slide.visuel`. |
+| `references/style-visuel.md` | À l'étape 4, avant d'écrire les textes : les mesures du texte, que le moteur suit. |
 | `references/publics.md` | Dès la réponse sur le public (étape 1), puis pour régler sources, graphiques et concurrents. |
-| `references/deck-spec.md` | Avant d'écrire `deck.json` (étape 3), et pour comprendre une erreur du contrôle. |
-| `references/formats/<format>.md` | À l'étape 5, seulement celui du format choisi (plus `powerpoint.md` §1 pour Keynote et Canva). |
-| `references/data/archetypes.json` | Quand un archétype pose question : éléments, variantes, règle de mise en page. |
+| `references/deck-spec.md` | Avant d'écrire `deck.json` (étape 4), et pour comprendre une erreur du contrôle. |
+| `references/formats/<format>.md` | À l'étape 6, seulement celui du format choisi (plus `powerpoint.md` §1 pour Keynote et Canva). |
+| `references/data/archetypes.json` | Quand un archétype pose question : éléments, règle de mise en page. Les variantes que le moteur dessine sont dans `designs.md`. |
 | `references/data/annonce.json` | Pour le détail d'une étape d'annonce ou d'une variante. |
 | `references/data/formules.json` | Pour varier les formules au-delà de `grammaire.md` §7 (gabarits EN et FR). |
 | `references/data/runofshow.json` | Pour des proportions exactes de déroulé (les 8 keynotes, segment par segment). |
 | `references/data/lexique.json` | Rarement : fréquence des mots du corpus anglais, pour doser un adjectif. |
 | `references/data/publics-exigences.json` | Version machine de `publics.md`, lue par les scripts. À lire seulement pour comprendre une alerte. |
-| `assets/exemple-deck.json` | Exemple fictif complet, pour le niveau de détail du script et l'usage des marqueurs. |
-| `scripts/check_deck.py`, `scripts/build_deck.js`, `scripts/export_script.js` | Contrôle (Python 3.9 et plus, sans dépendance), rendu .pptx et aperçu (Node 18 et plus, pptxgenjs), script, apparitions et sous-titres (Node, sans dépendance). |
+| `assets/exemple-deck.json` | Exemple fictif complet, pour le niveau de détail du script, des variantes, des briefs de visuels et des marqueurs. |
+| `scripts/check_deck.py`, `scripts/build_deck.js`, `scripts/export_script.js` | Contrôle (Python 3.9 et plus, sans dépendance), rendu .pptx et aperçu (Node 18 et plus, pptxgenjs), script, visuels à préparer, apparitions et sous-titres (Node, sans dépendance). |

@@ -13,7 +13,7 @@
     "ratio": "16:9",
     "contexte": "direct",
     "variante": "service",
-    "note": "Exemple fictif : Clairval est une PME inventée, ses chiffres, sa date et son témoignage aussi. Les marqueurs [À VALIDER] et [À FOURNIR] et l'image absente de la slide 15 sont là exprès, pour montrer leur usage."
+    "note": "Exemple fictif : Clairval est une PME inventée, ses chiffres, sa date et son témoignage aussi. Les marqueurs [À VALIDER] et [À FOURNIR] et l'image absente de la slide 15 sont là exprès, pour montrer leur usage. Chaque slide porte sa variante de composition, et les slides à image le brief du visuel à préparer (slide.visuel)."
   },
   "theme": {
     "nom": "Clairval",
@@ -60,6 +60,7 @@
       "bloc": "Ouverture",
       "etape": null,
       "archetype": "A1",
+      "variante": "aplat",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -77,6 +78,7 @@
       "bloc": "Clairval Direct",
       "etape": 2,
       "archetype": "A5",
+      "variante": "centre",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -96,6 +98,7 @@
       "bloc": "Clairval Direct",
       "etape": 3,
       "archetype": "A4",
+      "variante": "aplat",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -112,6 +115,7 @@
       "bloc": "Clairval Direct",
       "etape": 3,
       "archetype": "A5",
+      "variante": "bloc",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -132,6 +136,7 @@
       "bloc": "Clairval Direct",
       "etape": 6,
       "archetype": "A1",
+      "variante": "aplat",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -150,10 +155,11 @@
       "bloc": "Clairval Direct",
       "etape": 7,
       "archetype": "A4",
+      "variante": "mot-accent",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
-        "titre": "Surveillé en *continu*.\nRéparé dans la *journée*."
+        "titre": "Surveillé en continu.\nRéparé dans la *journée*."
       },
       "notes": "Clairval Direct est le moyen simple de garder votre chauffage en marche sans y penser. Un capteur surveille votre installation jour et nuit. S'il détecte un problème, notre équipe est prévenue aussitôt, et un technicien est chez vous dans la journée. Souvent avant même que vous ne remarquiez quoi que ce soit. Vous n'avez plus à appeler. Vous n'avez plus à attendre. C'est nous qui venons à vous, avant que vous ayez besoin de nous.",
       "duree_s": 35,
@@ -167,10 +173,11 @@
       "bloc": "Clairval Direct",
       "etape": 8,
       "archetype": "A9",
+      "variante": "objet-liste",
       "fond": "sombre",
       "intervenant": "hugo",
       "textes": {
-        "titre": "Un capteur, posé en une heure",
+        "titre": "Posé en une heure",
         "lignes": [
           "Sur votre installation actuelle",
           "Sans travaux",
@@ -180,6 +187,13 @@
       "image": {
         "chemin": "exemple-images/capteur.png",
         "attendu": "Le boîtier Clairval Direct, de face"
+      },
+      "visuel": {
+        "type": "produit",
+        "brief": "Le boîtier Clairval Direct seul, entier, sur fond neutre : lumière douce de studio, une arête claire sur le bord, sans ombre ni reflet intégrés, sans texte.",
+        "fond_transparent": true,
+        "angle": "trois-quarts",
+        "resolution_min": "2000 px de haut"
       },
       "notes": [
         {
@@ -204,11 +218,19 @@
       "bloc": "Clairval Direct",
       "etape": 10,
       "archetype": "A10",
+      "variante": "capture-nue",
       "fond": "sombre",
       "intervenant": "hugo",
       "image": {
         "chemin": "exemple-images/tableau-de-bord.png",
         "attendu": "Le tableau de bord avec trois sites, dont un en orange"
+      },
+      "visuel": {
+        "type": "capture",
+        "brief": "Capture nue du tableau de bord, plein écran, au format 16:9 : trois bâtiments, deux en vert et le groupe scolaire en orange, la courbe de pression visible ; données de démonstration, heure neutre, aucune notification.",
+        "fond_transparent": false,
+        "angle": "face",
+        "resolution_min": "1920 × 1080"
       },
       "notes": "Laissez-moi vous montrer ce que vous voyez de votre côté. Toutes les mesures du capteur arrivent sur votre tableau de bord, que vous ouvrez depuis un ordinateur ou un téléphone. Ici, vous voyez trois bâtiments. Le siège et l'entrepôt sont en vert : tout est normal. Le groupe scolaire est en orange. Regardons pourquoi. Sur la courbe, la pression baisse lentement depuis quatre jours. Ce n'est pas encore une panne. C'est une petite fuite, qui finira par en devenir une. Personne ne l'aurait remarquée à l'œil nu. Nous, nous la voyons. À ce moment précis, une alerte part vers notre équipe, qui planifie une intervention. Vous recevez un message avec le jour et l'heure du passage. Vous n'avez rien fait, et la panne n'aura pas lieu.",
       "duree_s": 80,
@@ -222,6 +244,7 @@
       "bloc": "Clairval Direct",
       "etape": 9,
       "archetype": "A5",
+      "variante": "contour",
       "fond": "sombre",
       "intervenant": "hugo",
       "textes": {
@@ -251,6 +274,7 @@
       "bloc": "Clairval Direct",
       "etape": 9,
       "archetype": "A6",
+      "variante": "barres",
       "fond": "sombre",
       "intervenant": "ines",
       "textes": {
@@ -289,6 +313,7 @@
       "bloc": "Clairval Direct",
       "etape": 11,
       "archetype": "A17",
+      "variante": "courte",
       "fond": "sombre",
       "intervenant": "ines",
       "textes": {
@@ -317,6 +342,7 @@
       "bloc": "Clairval Direct",
       "etape": 13,
       "archetype": "A8",
+      "variante": "coche-par-ligne",
       "fond": "sombre",
       "intervenant": "hugo",
       "textes": {
@@ -338,6 +364,7 @@
       "bloc": "Clairval Direct",
       "etape": 14,
       "archetype": "A14",
+      "variante": "nom-au-centre",
       "fond": "sombre",
       "intervenant": "hugo",
       "textes": {
@@ -348,6 +375,7 @@
             "titre": "de pose"
           },
           {
+            "type": "mot",
             "titre": "Toutes marques"
           },
           {
@@ -355,18 +383,24 @@
             "titre": "technicien sur place"
           },
           {
+            "type": "mot",
             "titre": "Surveillance continue"
           },
           {
+            "type": "mot",
             "titre": "Alerte avant la panne"
           },
           {
-            "titre": "Tableau de bord partagé"
+            "type": "capture",
+            "titre": "Tableau de bord partagé",
+            "image": "exemple-images/tableau-de-bord.png"
           },
           {
+            "type": "mot",
             "titre": "Sans engagement"
           },
           {
+            "type": "mot",
             "titre": "Données en France"
           }
         ]
@@ -394,6 +428,7 @@
       "bloc": "Clairval Direct",
       "etape": 15,
       "archetype": "A19",
+      "variante": "colonne",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -410,6 +445,13 @@
         "chemin": "exemple-images/capteur.png",
         "attendu": "Le boîtier Clairval Direct"
       },
+      "visuel": {
+        "type": "produit",
+        "brief": "Le même boîtier, de face, détouré, à la même lumière que sur la slide du capteur ; il occupera presque toute la hauteur, à gauche.",
+        "fond_transparent": true,
+        "angle": "face",
+        "resolution_min": "2000 px de haut"
+      },
       "a_fournir": "Prix mensuel hors taxes par site, capteur et pose compris, validé par la direction commerciale.",
       "notes": "Merci Hugo. Parlons du prix, puisque c'est la question que vous vous posez. Clairval Direct est proposé à partir de [À FOURNIR : prix] hors taxes, par mois et par site. Le capteur et sa pose sont inclus : vous n'achetez aucun matériel. Si vous avez déjà un contrat d'entretien avec nous, le service s'y ajoute simplement, sans nouveau contrat à signer. Votre interlocuteur habituel peut vous faire une proposition pour chacun de vos sites.",
       "duree_s": 30,
@@ -423,6 +465,7 @@
       "bloc": "Clairval Direct",
       "etape": 15,
       "archetype": "A20",
+      "variante": "colonne",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
@@ -432,6 +475,13 @@
       "image": {
         "chemin": "exemple-images/zone-desservie.png",
         "attendu": "Carte de la métropole de Lyon, zone desservie en couleur d'accent"
+      },
+      "visuel": {
+        "type": "schema",
+        "brief": "Carte de la métropole de Lyon au trait, d'une seule couleur : la zone desservie en aplat plein, le reste en contour fin ; ni nom de rue, ni chiffre, ni logo.",
+        "fond_transparent": true,
+        "angle": "dessus",
+        "resolution_min": "2000 × 2000"
       },
       "notes": "Clairval Direct est disponible dès le premier février, sur toute la métropole de Lyon. Vous pouvez réserver la pose de votre capteur dès aujourd'hui, auprès de votre interlocuteur habituel, ou à l'accueil, en sortant. Les premières poses auront lieu dans les sites qui nous ont déjà contactés, puis dans l'ordre des demandes. Si vous gérez plusieurs bâtiments, nous pouvons aussi commencer par celui qui vous inquiète le plus, et poser les autres ensuite.",
       "duree_s": 35,
@@ -445,6 +495,7 @@
       "bloc": "Clôture",
       "etape": 16,
       "archetype": "A1",
+      "variante": "mot-final",
       "fond": "sombre",
       "intervenant": "claire",
       "textes": {
