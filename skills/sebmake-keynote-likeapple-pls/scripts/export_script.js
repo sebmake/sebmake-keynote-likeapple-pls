@@ -318,10 +318,10 @@ function visualsOf(slide, deckDir, en) {
     if (x && typeof x === 'object' && x.image && !exists(x.image)) out.push(make({ type, chemin: str(x.image), brief: unmark(label(x)) }, -1, 'element'));
   });
   el(t.tuiles, 'image', (x) => [x.titre, x.texte].filter(Boolean).join(' · '));
-  // Tuile de bento qui annonce un visuel (type capture, icone, photo, matiere) sans image : à préparer.
+  // Tuile de bento qui annonce un visuel (type capture, fragment, icone, photo, matiere) sans image : à préparer.
   arr(t.tuiles).forEach((x) => {
     const ty = x && typeof x === 'object' ? str(x.type).toLowerCase() : '';
-    if (!x || x.image || !['capture', 'icone', 'photo', 'matiere'].includes(ty)) return;
+    if (!x || x.image || !['capture', 'fragment', 'icone', 'photo', 'matiere'].includes(ty)) return;
     out.push(make({ type: ty, brief: unmark([x.titre, x.texte].filter(Boolean).join(' · ')) }, -1, 'element'));
   });
   el(t.elements, arch === 'A15' && /icones/.test(variante) ? 'icone' : 'image', (x) => str(x.titre));

@@ -22,7 +22,7 @@ Type sizes, weights, letter spacing and positions come from 67 frames of those k
 
 ## Layouts
 
-25 slide types taken from the keynotes (title card, hero number, bento recap, product alone, screenshot inside a device, full-bleed photo, pricing, availability and more) share 147 layout variants, and each type has its own entry in `references/designs.md`. The skill picks a layout for every slide and varies it from one block to the next.
+25 slide types taken from the keynotes (title card, hero number, bento recap, product alone, screenshot inside a device, full-bleed photo, pricing, availability and more) share 148 layout variants, and each type has its own entry in `references/designs.md`. The skill picks a layout for every slide and varies it from one block to the next. For a software product, the bento recap is built from components pulled out of your own mockups rather than whole screens, with at most one usage photo from Unsplash or Pexels.
 
 It also hands you a list of visuals to prepare, each with a brief: type, framing, transparent background or not, resolution. Until a visual shows up, the slide carries a neutral placeholder with no numbers and no logo.
 

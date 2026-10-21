@@ -65,7 +65,8 @@ VARIANTES = {
     "A11": ["legende-laterale", "plusieurs-blocs", "schema-chiffre", "carte-annotee", "carre-halo"],
     "A12": ["macro-matiere", "capot-ouvert", "eclate-axial", "flux-lumiere"],
     "A13": ["centre-entier", "hero-coupe", "profil-levitation", "coloris"],
-    "A14": ["nom-au-centre", "produit-au-centre", "tuiles-chiffres", "mot-geant-et-produit", "theme-et-matieres", "grille-icones"],
+    "A14": ["nom-au-centre", "produit-au-centre", "tuiles-chiffres", "mot-geant-et-produit", "theme-et-matieres", "grille-icones",
+             "fragments-logiciel"],
     "A15": ["vignettes", "icones", "mots", "nuage", "cartes-libelles", "forme"],
     "A16": ["grille", "ligne", "logo-seul", "mur-dense", "pastilles", "soi-au-centre"],
     "A17": ["courte", "longue", "source-accent", "centree-signature"],
@@ -105,12 +106,13 @@ REQUIRED_VARIANTE = {
     "A6/deux-axes": ["titre"], "A6/frise": ["titre"], "A6/classement": ["titre"],
     "A9/objet-chiffre": ["chiffre"], "A9/annotee": [], "A11/carte-annotee": [], "A11/carre-halo": [],
     "A14/produit-au-centre": ["tuiles"], "A14/tuiles-chiffres": ["tuiles"], "A14/grille-icones": ["tuiles"],
+    "A14/fragments-logiciel": ["tuiles"],
     "FIN/mot-final": ["titre"],
 }
 REQUIRED_VARIANTE.update((a + "/" + v, []) for a in ("A15", "A16") for v in VARIANTES[a])
 REQUIRED_VARIANTE.update((a + "/" + v, []) for a in FAMILLES_LIBRES for v in VARIANTES[a] if a + "/" + v not in REQUIRED_VARIANTE)
 TUILES_BORNES = {"A14/produit-au-centre": (4, 10), "A14/tuiles-chiffres": (4, 10), "A14/mot-geant-et-produit": (4, 10),
-                 "A14/theme-et-matieres": (4, 10), "A14/grille-icones": (3, 12)}
+                 "A14/theme-et-matieres": (4, 10), "A14/grille-icones": (3, 12), "A14/fragments-logiciel": (6, 11)}
 APPAREILS = {"telephone", "tablette", "portable", "boitier"}
 # Archétypes qui sont toujours un moment visuel fort.
 MOMENTS_VISUELS = {"A5", "A9", "A10", "A13", "A14", "A18"}
@@ -759,10 +761,14 @@ def check(deck, deck_dir, brouillon=False):
             lo, hi = TUILES_BORNES.get(var_cle, (4, 8))
             if tuiles and not lo <= len(tuiles) <= hi:
                 rep.warn(where, "Bento : %d à %d tuiles autour du centre (%d)." % (lo, hi, len(tuiles)))
+            # Bento logiciel : un nom de fonction et une ligne qui le situe (4 + 5 mots au plus).
+            max_mots = 9 if var_cle == "A14/fragments-logiciel" else 6
             for tile in tuiles:
                 tw = sum(len(words(tile.get(k))) for k in ("chiffre", "titre", "texte")) if isinstance(tile, dict) else len(words(tile))
-                if tw > 6:
-                    rep.warn(where, "Tuile de bento trop bavarde (%d mots)." % tw)
+                if tw > max_mots:
+                    rep.warn(where, "Tuile de bento trop bavarde (%d mots, %d au plus)." % (tw, max_mots))
+                if isinstance(tile, dict) and len(as_list(tile.get("lignes"))) > 5:
+                    rep.warn(where, "Tuile-liste de bento : 5 lignes au plus (%d)." % len(as_list(tile.get("lignes"))))
 
         # Une idée : un seul chiffre sur une slide-chiffre
         if arch == "A5":

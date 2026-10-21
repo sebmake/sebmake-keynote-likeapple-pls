@@ -34,6 +34,9 @@ Tout vient des 8 keynotes du corpus (2019 à 2026), regardées image par image :
 4. **Au moins un moment visuel fort par bloc** : un chiffre géant (A5), un objet ou une interface (A9, A10), le produit seul (A13), le bento (A14), une photo plein cadre (A18), ou une variante à image (colonne « Moment visuel fort » de la table). Place-le là où le bloc prouve ou révèle.
 5. **Dose la profondeur** : un objet qui sort du cadre, un halo d'accent, ou une ombre de contact sur fond clair. Une seule de ces trois choses par slide, et jamais d'ombre sur fond sombre.
 6. **Écris le visuel à préparer** dans `slide.visuel` (`deck-spec.md`), d'après le §7 de la fiche : type, brief, fond transparent, angle, résolution minimale. `export_script.js --visuels` en tire la liste à livrer.
+7. **Va chercher les visuels toi-même quand tu le peux**, avec l'accord de l'utilisateur. Deux sources :
+   - **sa maquette, jusqu'au composant.** Avec le lien d'une maquette (Figma, par exemple), ne t'arrête pas à l'écran entier. Entre dans la frame, isole le composant qui dit la fonction (une carte, un bouton, une colonne de statuts, un menu, trois lignes d'un tableau) et exporte-le seul. Un écran réduit dans une tuile ou à côté d'un texte devient illisible ; un composant se lit. L'écran entier reste pour l'A10 et les appareils.
+   - **une banque de photos libre de droits**, pour les photos d'usage et d'ambiance : Unsplash ou Pexels. Sur Unsplash, filtre sur « gratuit » (l'offre payante Unsplash+ est exclue) et vérifie « Photo gratuite » sur la page de la photo. Sur Pexels, vérifie « Free to use ». Note l'auteur et le lien pour les crédits. La photo montre le métier et le marché du public (lieux, signalétique, objets et gens du pays visé), aucune marque lisible et jamais une image générée présentée comme une photo.
 
 ### Les variantes du moteur
 
@@ -54,7 +57,7 @@ Tout vient des 8 keynotes du corpus (2019 à 2026), regardées image par image :
 | A11 Schéma | `legende-laterale` · `plusieurs-blocs` · `schema-chiffre` · `carte-annotee` (vue de dessus) · `carre-halo` : schéma SVG facultatif | `carte-annotee` |
 | A12 Vue intérieure | `macro-matiere` · `capot-ouvert` · `eclate-axial` · `flux-lumiere` : rendu 3D ou macro | toutes |
 | A13 Produit seul | `centre-entier` · `hero-coupe` · `profil-levitation` · `coloris` (deux vues) : produit détouré | toutes |
-| A14 Bento | `nom-au-centre` · `produit-au-centre` (produit) · `tuiles-chiffres` (produit) · `mot-geant-et-produit` (produit) · `theme-et-matieres` (photo) · `grille-icones` (icônes) | toutes |
+| A14 Bento | `nom-au-centre` · `produit-au-centre` (produit) · `tuiles-chiffres` (produit) · `mot-geant-et-produit` (produit) · `theme-et-matieres` (photo) · `grille-icones` (icônes) · `fragments-logiciel` (composants d'interface, une photo d'usage) | toutes |
 | A15 Mur | `vignettes` (20 à 40 images) · `icones` (40 à 100 icônes) · `mots` · `nuage` · `cartes-libelles` · `forme` (images) | `vignettes`, `icones`, `forme` |
 | A16 Logos | `grille` · `ligne` · `logo-seul` · `mur-dense` · `pastilles` · `soi-au-centre` : logos monochromes | non |
 | A17 Citation | `courte` · `longue` · `source-accent` · `centree-signature` | non |
@@ -2196,7 +2199,7 @@ La grille « nom » tient en 8 tuiles. La grille « produit » en demande 10, ou
 
 #### 3. Variantes observées
 
-**Dans le moteur** : `slide.variante` = `nom-au-centre`, `produit-au-centre`, `tuiles-chiffres`, `mot-geant-et-produit`, `theme-et-matieres` ou `grille-icones`. Sans variante : le rendu d'origine, plus simple que les variantes. Champs de chaque variante : `deck-spec.md`, « Variantes ».
+**Dans le moteur** : `slide.variante` = `nom-au-centre`, `produit-au-centre`, `tuiles-chiffres`, `mot-geant-et-produit`, `theme-et-matieres`, `grille-icones` ou `fragments-logiciel` (variante g, ci-dessous). Sans variante : le rendu d'origine, plus simple que les variantes. Champs de chaque variante : `deck-spec.md`, « Variantes ».
 
 **a. Nom au centre (`nom-au-centre`)** — 3/8 (v1, v7, v8), les trois conférences logicielles préenregistrées.
 Le nom de la plateforme, en blanc, sur la tuile centrale large et basse. Autour : captures, icônes, une photo, un mot. Aucun chiffre (0/3).
@@ -2215,6 +2218,24 @@ Un récap transversal (environnement, santé), pas un produit. Les tuiles porten
 
 **f. Grille d'icônes (récap du direct) (`grille-icones`)** — 1/8 (v6).
 Pas de tuile centrale : deux ou trois rangées d'icônes égales, une par nouveauté, sans texte. C'est le récap des keynotes en direct, qui n'ont pas de bento (0/2).
+
+**g. Logiciel en fragments (`fragments-logiciel`)** — hors corpus : 7 slides de récap de sessions pour développeurs (WWDC 2023 à 2025 : deux récaps de plateforme, cinq récaps d'un framework d'interface), relevées sur une galerie publique de slides de récap ; géométrie mesurée au pixel sur 5 d'entre elles (`style-visuel.md` §3 A14), le reste relevé à l'œil.
+C'est le récap d'un logiciel : une plateforme, ou un outil métier vendu en SaaS. Il n'y a pas de produit à photographier ; ce qu'on montre, ce sont les fonctions.
+- Pas de grille 3 × 3 : de 5 à 16 tuiles de tailles très inégales. La tuile qui ancre porte le nom de la plateforme ou son logo, au centre ou presque.
+- Chaque tuile associe un nom de fonction (2 ou 3 mots) et un fragment de l'interface : une fenêtre, un menu, une carte, un réglage, trois lignes de code. Jamais un écran entier réduit.
+- Le fragment sort le plus souvent par un bord de la tuile (une fenêtre coupée à droite ou en bas). Sinon il flotte entier : un petit panneau posé sur la tuile.
+- Le nom se pose en haut à gauche, au-dessus ou à côté du fragment ; il n'est centré sous le visuel que dans les tuiles-icônes.
+- Une tuile-photo d'usage au plus : une personne qui se sert de la plateforme, titre en blanc en bas à gauche.
+- Une tuile-liste en aplat de couleur, avec quatre ou cinq mots empilés (les qualités du langage, par exemple), dans un récap sur sept.
+- Les marges extérieures sont deux à trois fois plus larges que dans les bentos de keynote.
+
+Ce que la skill en garde (convention, éprouvée sur le récap de la démo d'un SaaS B2B) :
+- **les tuiles suivent la démo.** Trois zones de gauche à droite, dans l'ordre où la démo a montré les choses : ce que l'utilisateur configure, ce que son client fait, ce qu'il en tire. Une tuile par parcours montré, rien de neuf.
+- **la tuile centrale est sombre** sur un deck clair (aplat `fond_sombre`) et en accent sur un deck sombre. Elle porte le logo clair (`image`, facultatif), puis le nom ou la boucle de la démo en trois mots, un par ligne (« Configurer. Vendre. Encaisser. »), et une phrase à droite au plus (`texte`).
+- **une tuile `fragment`** se compose d'un nom de 4 mots au plus, en haut à gauche, d'une ligne de 5 mots au plus qui le situe, et d'un composant isolé de son écran. Le composant est posé à sa taille d'interface : 1 px de l'export vaut 1 px d'un écran de 1 920 px (`echelle` 0,5 pour un export 2x). S'il tient, ou s'il dépasse de moins de moitié, il est montré entier, réduit au besoin et calé en bas. Au-delà, il garde sa taille et sort par la droite et par le bas. Un composant haut (une colonne de statuts, un panneau) se place à droite du nom. Un filet de 0,5 pt le détache d'une tuile de même couleur. Pas d'ombre : la skill garde la règle du §4.
+- **une seule tuile d'accent**, la tuile-liste (`liste` : un surtitre, puis 4 ou 5 lignes de 2 à 4 mots), sur un deck clair. Sur un deck sombre, l'accent passe à la tuile centrale.
+- **au plus une tuile-photo et une tuile-chiffre.** La photo montre le métier du public. Le chiffre est sourcé, comme partout.
+- de 6 à 11 tuiles. En dessous de 11, des cases fusionnent deux à deux ; il n'y a jamais de trou.
 
 **Non retenue pour le moteur : le bento sur l'écran du décor** — 3/8 (v1, v7, v8). La même grille repasse sur le mur ou sur le panneau, l'orateur à côté ou incrusté devant. C'est un plan de scène (A22), pas une slide.
 
@@ -2275,6 +2296,8 @@ Une ligne par tuile : « tuile n : type, ce qu'elle montre ». Puis, selon le ty
 - **photo** : JPG d'au moins 1 600 px de large, sujet au centre ; elle sera recadrée à la forme de la tuile.
 - **matière** : JPG d'au moins 1 200 px, sans texte ni logo.
 - **chiffre** : le chiffre, son libellé et sa source.
+- **fragment** (variante g) : un composant isolé de son écran, jamais une capture pleine page. Ce peut être une carte, une colonne de statuts, un bouton, trois lignes d'un tableau ou un menu. On entre dans la maquette (dans Figma, la frame, puis le calque du composant) et on l'exporte seul, en PNG à 2x (`echelle: 0.5`) ou à 1x, avec les données de démonstration de la maquette. Le serveur MCP de Figma ne rend un nœud qu'à 1x au plus : à cette taille, on l'affiche à l'échelle 1 ou en dessous, sinon le texte devient flou. On garde la partie qui dit la fonction : la colonne des statuts plutôt que le tableau entier. Une maquette gelée ne se retouche pas pour la slide.
+- **photo d'usage** (variante g) : une banque d'images libre de droits convient, Unsplash ou Pexels (§2, règle 7). Sur Unsplash, filtrer sur « gratuit » et vérifier « Photo gratuite » sur la page de la photo. Sur Pexels, vérifier « Free to use ». Noter l'auteur pour les crédits. La photo montre le métier du public et son marché : les lieux, la signalétique, les objets et les gens du pays visé. Un public français ne se reconnaît pas dans un décor manifestement étranger. Aucune marque lisible.
 
 **Repli dessiné** (rien n'est inventé) : la tuile centrale « nom » en aplat d'accent avec le nom ; la tuile centrale « produit » avec une silhouette générique (volume arrondi, sans détail) ; les captures en interface schématique claire coupée par le bord de la tuile (`style-visuel.md` §5.2) ; les icônes en pictogramme géométrique gris (cercle, carré arrondi, trait) ; les photos en aplat voisin avec deux halos neutres ; les matières en aplat un peu plus sombre, sans motif ; les chiffres en marqueur estompé. Aucun nombre, aucun logo.
 
@@ -2288,6 +2311,10 @@ Une ligne par tuile : « tuile n : type, ce qu'elle montre ». Puis, selon le ty
 - Une tuile vide ou un cadre gris « image attendue ».
 - Un dégradé de fond, ou plusieurs couleurs d'accent.
 - Un logo de partenaire ou un nombre dans le repli.
+- (variante g) Un écran entier réduit dans une tuile, illisible : prendre un composant.
+- (variante g) Un composant agrandi au-delà de sa taille d'export : il devient flou.
+- (variante g) Une tuile d'impacts ou de gains présentée comme un résultat alors que c'est une promesse : la passer en `[À VALIDER]`, ou citer la mesure.
+- (variante g) Une photo hors du marché du public, ou qui montre une marque.
 
 ### A19 · Prix
 

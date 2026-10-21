@@ -226,6 +226,20 @@ Positions en pouces sur le canevas de 10 × 5,625 in. « centre y » est le cent
   chiffre de tuile : corps 48 pt, graisse 600, accent uni
   ```
   Le bento est la seule slide où un texte descend sous 3 % H : il se regarde, il ne se lit pas.
+- **Variante `fragments-logiciel`, mesuré (5 récaps de sessions pour développeurs, hors corpus, au pixel sur 1 920 × 1 080)** :
+  - marge extérieure de 46 à 60 px, soit 2,4 à 3,1 % L, et 4,1 à 5,6 % H en haut et en bas ;
+  - gouttière de 12 à 20 px, soit 0,6 à 1 % L ;
+  - de 5 à 16 tuiles. Les tuiles des récaps de framework sont en aplat ; ceux de plateforme portent des dégradés, que la skill ne garde pas.
+- **Valeurs `fragments-logiciel`** :
+  ```
+  marge 0.21 in · gouttière 0.094 in · grille de 12 colonnes · rangées 300 / 352 / 312 (sur 1080)
+  tuile centrale : colonnes 5 à 8, rangée du milieu · fond_sombre sur deck clair, accent sur deck sombre
+                   titre 30 pt (18 au moins), graisse 600, 3 lignes au plus · texte 9 pt regular
+  tuile fragment : nom 16 pt (11 au moins), graisse 600, en haut à gauche · ligne 9 pt regular, secondaire
+                   composant à la taille d'interface (1 px = 1/192 in) × echelle · filet 0,5 pt, sans ombre
+  tuile chiffre : 96 pt (48 au moins), graisse 600, couleur du texte (l'accent reste à la liste)
+  tuile liste : surtitre 8 pt en capitales · lignes 13 pt (8 au moins), graisse 600, calées en bas · aplat accent
+  ```
 
 ### A17 Citation ou témoignage
 

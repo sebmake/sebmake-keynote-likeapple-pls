@@ -151,8 +151,8 @@ const LABELS = {
     finalNotes: 'Carton final : sources et mentions. Il reste à l\'écran pendant les remerciements ; on ne le commente pas.',
     sourceRef: (n) => 'Source ' + n + ' · en fin de présentation', sourceRenvoi: 'renvoi n°',
     image: 'Image', q: (s) => '« ' + s + ' »',
-    cap: { interface: 'Capture à fournir', appareil: 'Capture à fournir', objet: 'Visuel à fournir', photo: 'Photo à fournir', carte: 'Carte à fournir', icone: 'Icône à fournir', logo: 'Logo à fournir', tuile: 'Image à fournir' },
-    kind: { interface: 'capture', appareil: 'capture', objet: 'visuel', photo: 'photo', carte: 'carte', icone: 'icône', logo: 'logo', tuile: 'image' },
+    cap: { interface: 'Capture à fournir', appareil: 'Capture à fournir', objet: 'Visuel à fournir', photo: 'Photo à fournir', carte: 'Carte à fournir', icone: 'Icône à fournir', logo: 'Logo à fournir', tuile: 'Image à fournir', fragment: 'Composant à fournir' },
+    kind: { interface: 'capture', appareil: 'capture', objet: 'visuel', photo: 'photo', carte: 'carte', icone: 'icône', logo: 'logo', tuile: 'image', fragment: 'composant' },
     parts: { surtitre: 'surtitre', titre: 'titre', lignes: 'ligne', chiffre: 'chiffre', libelle: 'libellé', visuel: 'visuel', barres: 'barre', tuiles: 'tuile', centre: 'tuile centrale', prix: 'prix', nom: 'nom', date: 'date', citation: 'citation', auteur: 'auteur', logos: 'logo', note: 'note', fonction: 'fonction', coches: 'coches' }
   },
   en: {
@@ -164,8 +164,8 @@ const LABELS = {
     finalNotes: 'Final card: sources and legal notes. Leave it on screen during the thanks; do not comment on it.',
     sourceRef: (n) => 'Source ' + n + ' · see the final slide', sourceRenvoi: 'note no. ',
     image: 'Image', q: (s) => '“' + s + '”',
-    cap: { interface: 'Screenshot to provide', appareil: 'Screenshot to provide', objet: 'Visual to provide', photo: 'Photo to provide', carte: 'Map to provide', icone: 'Icon to provide', logo: 'Logo to provide', tuile: 'Image to provide' },
-    kind: { interface: 'screenshot', appareil: 'screenshot', objet: 'visual', photo: 'photo', carte: 'map', icone: 'icon', logo: 'logo', tuile: 'image' },
+    cap: { interface: 'Screenshot to provide', appareil: 'Screenshot to provide', objet: 'Visual to provide', photo: 'Photo to provide', carte: 'Map to provide', icone: 'Icon to provide', logo: 'Logo to provide', tuile: 'Image to provide', fragment: 'Component to provide' },
+    kind: { interface: 'screenshot', appareil: 'screenshot', objet: 'visual', photo: 'photo', carte: 'map', icone: 'icon', logo: 'logo', tuile: 'image', fragment: 'component' },
     parts: { surtitre: 'kicker', titre: 'title', lignes: 'line', chiffre: 'figure', libelle: 'label', visuel: 'visual', barres: 'bar', tuiles: 'tile', centre: 'centre tile', prix: 'price', nom: 'name', date: 'date', citation: 'quote', auteur: 'author', logos: 'logo', note: 'note', fonction: 'role', coches: 'checks' }
   }
 };
@@ -2640,6 +2640,7 @@ const BRIEF = {
     icone: 'PNG carré de 1024 px, fond transparent',
     logo: 'logo monochrome, PNG à fond transparent',
     tuile: 'image JPEG ou PNG de 1200 px de large au moins',
+    fragment: 'composant isolé de son écran (carte, colonne, bouton, tableau), PNG exporté à 2x, sans l\'interface autour',
     carte: 'image de 1920 px de large au moins'
   },
   en: {
@@ -2650,6 +2651,7 @@ const BRIEF = {
     icone: 'square 1024 px PNG, transparent background',
     logo: 'single-colour logo, transparent PNG',
     tuile: 'JPEG or PNG at least 1200 px wide',
+    fragment: 'a single component cut out of its screen (card, column, button, table), PNG exported at 2x, without the surrounding UI',
     carte: 'image at least 1920 px wide'
   }
 };
@@ -5123,6 +5125,168 @@ V['A14/grille-icones'] = (c) => {
     iconVisual(c, { x, y, w: s, h: s }, t.image, { g: 'tuiles', sub: i, fill: iconTints(c)[i % 5], glyph: ICON_GLYPHS[(i + Math.floor(i / 5)) % 5] });
   });
   c.groups = [G('tuiles', /\b(?:grilles?|icones?|icons?|tuiles?)\b/)];
+};
+
+// Bento d'un logiciel (outil métier, SaaS) : grille de 12 colonnes lue en trois zones, qui suivent
+// le parcours montré de gauche à droite ; tuile centrale sombre (logo, puis le nom ou la boucle en
+// trois mots). Chaque tuile porte son titre en haut à gauche et un composant de l'interface, isolé
+// de son écran, qui sort de la tuile par la droite ou par le bas. Une seule tuile d'accent : la liste.
+// Mesures : récaps des sessions développeurs (marge 2,4 à 3,1 % L, gouttière 0,6 à 1 % L) et
+// convention pour les rangées (300 / 352 / 312 sur 1080).
+const BENTO_LOGICIEL = {
+  marge: 0.21, gouttiere: 0.094, rangees: [300, 352, 312], centre: [4, 4, 1],
+  // Cases par nombre de tuiles : [colonne de début, colonnes, rangée, type par défaut].
+  cases: {
+    11: [[0, 4, 0, 'fragment'], [4, 4, 0, 'fragment'], [8, 4, 0, 'fragment'], [0, 2, 1, 'chiffre'], [2, 2, 1, 'fragment'], [8, 2, 1, 'fragment'], [10, 2, 1, 'photo'], [0, 4, 2, 'fragment'], [4, 2, 2, 'fragment'], [6, 2, 2, 'liste'], [8, 4, 2, 'fragment']],
+    10: [[0, 4, 0, 'fragment'], [4, 4, 0, 'fragment'], [8, 4, 0, 'fragment'], [0, 4, 1, 'fragment'], [8, 2, 1, 'fragment'], [10, 2, 1, 'photo'], [0, 4, 2, 'fragment'], [4, 2, 2, 'fragment'], [6, 2, 2, 'liste'], [8, 4, 2, 'fragment']],
+    9: [[0, 4, 0, 'fragment'], [4, 4, 0, 'fragment'], [8, 4, 0, 'fragment'], [0, 4, 1, 'fragment'], [8, 4, 1, 'photo'], [0, 4, 2, 'fragment'], [4, 2, 2, 'fragment'], [6, 2, 2, 'liste'], [8, 4, 2, 'fragment']],
+    8: [[0, 4, 0, 'fragment'], [4, 4, 0, 'fragment'], [8, 4, 0, 'fragment'], [0, 4, 1, 'fragment'], [8, 4, 1, 'photo'], [0, 4, 2, 'fragment'], [4, 4, 2, 'liste'], [8, 4, 2, 'fragment']],
+    7: [[0, 6, 0, 'fragment'], [6, 6, 0, 'fragment'], [0, 4, 1, 'fragment'], [8, 4, 1, 'photo'], [0, 4, 2, 'fragment'], [4, 4, 2, 'liste'], [8, 4, 2, 'fragment']],
+    6: [[0, 6, 0, 'fragment'], [6, 6, 0, 'fragment'], [0, 4, 1, 'fragment'], [8, 4, 1, 'photo'], [0, 6, 2, 'fragment'], [6, 6, 2, 'fragment']]
+  },
+  titre: [16, 11], texte: 9, liste: [13, 8], chiffre: [96, 48], centreTitre: [30, 18], centreTexte: 9
+};
+function logicielBox(c) {
+  const S = BENTO_LOGICIEL;
+  const m = S.marge;
+  const g = S.gouttiere;
+  const room = c.sourceOnSlide && !c.sourceDone ? 0.2 : 0;
+  const cw = (W - 2 * m - 11 * g) / 12;
+  const usable = H - 2 * m - 2 * g - room;
+  const tot = S.rangees.reduce((a, b) => a + b, 0);
+  const rh = S.rangees.map((r) => usable * r / tot);
+  const ry = [m, m + rh[0] + g, m + rh[0] + rh[1] + 2 * g];
+  return (col, span, row) => ({ x: m + col * (cw + g), y: ry[row], w: span * cw + (span - 1) * g, h: rh[row] });
+}
+// Titre (et sa ligne de texte) en haut à gauche d'une tuile ; rend la géométrie pour poser le composant.
+function logicielHead(c, b, tile, i, o) {
+  const S = BENTO_LOGICIEL;
+  const pad = o.pad;
+  const paras = [];
+  c.para(str(tile.titre) || (c.lang === 'en' ? '[TO PROVIDE: name]' : '[À FOURNIR : nom]'), { wt: 'semi', font: 'titre', color: o.color, gap: 0.05 }).forEach((p) => paras.push(p));
+  if (str(tile.texte)) c.para(tile.texte, { pt: S.texte, wt: 'regular', font: 'texte', color: o.color2 }).forEach((p) => paras.push(p));
+  const it = c.text({ x: b.x + pad, y: b.y + pad, w: o.w, h: o.h, paras, size: S.titre[0], min: S.titre[1], maxTotal: 4, wt: 'semi', align: 'left', valign: o.valign || 'top', font: 'titre', color: o.color, lh: K.titre, balance: true, name: 'Titre tuile ' + (i + 1), g: 'tuiles', sub: i });
+  return textGeom(it);
+}
+// Tuile « fragment » : un composant isolé (carte, colonne de statuts, bouton, tableau) posé à sa
+// taille d'interface : 1 px de la capture = 1 px d'un écran de 1 920 px de large (× tile.echelle,
+// 0,5 pour un export 2x). Large : sous le titre ; haut (colonne, panneau) : à droite du titre.
+// Un composant qui tient, ou qui dépasse de moins de moitié, est montré entier (réduit au besoin),
+// calé en bas ; au-delà, il garde sa taille et sort de la tuile par la droite et le bas.
+function logicielFragment(c, b, tile, i, rad, pad) {
+  const g = { g: 'tuiles', sub: i };
+  const im = loadImg(c, tile.image);
+  const tall = im ? im.info.w / im.info.h < 0.8 : false;
+  const head = logicielHead(c, b, tile, i, { pad, w: tall ? b.w * 0.5 - pad : b.w - 2 * pad, h: tall ? b.h - 2 * pad : b.h * 0.42, color: c.P.fg, color2: c.P.fg2 });
+  const yTop = tall ? b.y + pad : head.top + head.h + 0.12;
+  if (!im) {
+    const cap = tall ? { x: b.x + b.w * 0.56, y: b.y + pad, w: b.w * 0.44 - pad, h: b.h } : { x: b.x + pad, y: yTop, w: b.w - pad, h: b.y + b.h - yTop + 0.1 };
+    (c._fragmentsSans = c._fragmentsSans || []).push(str(tile.titre) || String(i + 1));
+    const ph = { id: c.phs.length, name: c.L.cap.fragment + (str(tile.titre) ? ' · ' + shortLabel(tile.titre, 6) : ''), kind: 'fragment', g: g.g, sub: g.sub };
+    c.phs.push(ph);
+    const prev = c.curPh;
+    c.curPh = ph.id;
+    try {
+      const start = c.items.length;
+      drawWindow(c, cap, Object.assign({}, schemaColors(c), { shadow: false }), rng(11 + i), ['tableau', 'liste', 'document'][i % 3]);
+      clipItems(c, start, b);
+    } finally {
+      c.curPh = prev;
+    }
+    return;
+  }
+  const k = (Number(tile.echelle) > 0 ? Number(tile.echelle) : 1) * W / 1920;
+  let w = im.info.w * k;
+  let h = im.info.h * k;
+  const room = tall ? { x: b.x + b.w * 0.56, y: b.y + pad, w: b.w * 0.44 - pad, h: b.h - 2 * pad } : { x: b.x + pad, y: yTop, w: b.w - 2 * pad, h: b.y + b.h - pad - yTop };
+  let r;
+  if (w <= room.w * 1.5 && h <= room.h * 1.5) {
+    const s = Math.min(1, room.w / w, room.h / h);
+    w *= s;
+    h *= s;
+    r = { x: room.x, y: tall ? room.y : room.y + room.h - h, w, h };
+  } else {
+    if (tall && w > room.w) {
+      h *= room.w / w;
+      w = room.w;
+    }
+    r = { x: room.x, y: room.y, w, h };
+  }
+  putImage(c, im, r, Object.assign({ clip: b, radius: Math.min(0.08, rad / 2), name: 'Fragment ' + (i + 1) }, g));
+  const vis = inter(r, b);
+  if (vis) c.round(Object.assign({ x: vis.x, y: vis.y, w: vis.w, h: vis.h, line: c.P.line, lineW: 0.5, radius: Math.min(0.08, rad / 2), name: 'Contour fragment ' + (i + 1) }, g));
+}
+// Composants manquants : une consigne par bento, avec le brief d'un composant isolé.
+function fragmentsMissingNote(c) {
+  const l = uniq(c._fragmentsSans || []);
+  if (!l.length) return;
+  c.missing.push({ kind: 'fragment', attendu: (c.lang === 'en' ? 'components of the tiles: ' : 'composants des tuiles : ') + l.join(', '), chemin: '', brief: (BRIEF[c.lang] || BRIEF.fr).fragment });
+  c.warn('Tuiles sans composant (' + l.join(', ') + ') : interface schématique à la place.');
+}
+function logicielTile(c, b, tile, type, i, o) {
+  const S = BENTO_LOGICIEL;
+  const g = { g: 'tuiles', sub: i };
+  const rad = Math.min(VS.tuile.rayon, 0.25 * Math.min(b.w, b.h));
+  const pad = Math.min(0.2, Math.max(0.14, b.w * 0.07));
+  if (type === 'liste') {
+    const acc = o.accent;
+    const fill = acc ? c.P.accent : c.P.surface;
+    const ink = acc ? onAccent(c.P.accent, c.T.fondSombre) : c.P.fg;
+    c.round(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill, radius: rad, name: 'Tuile ' + (i + 1) }, g));
+    if (str(tile.titre)) c.text(Object.assign({ x: b.x + pad, y: b.y + pad, w: b.w - 2 * pad, h: 0.24, text: str(tile.titre).toLocaleUpperCase(c.lang === 'en' ? 'en' : 'fr'), size: 8, min: 7, maxTotal: 1, wt: 'semi', align: 'left', valign: 'top', font: 'texte', color: ink, name: 'Surtitre tuile ' + (i + 1) }, g));
+    const lines = arr(tile.lignes).length ? arr(tile.lignes) : [str(tile.texte) || (c.lang === 'en' ? '[TO PROVIDE: line]' : '[À FOURNIR : ligne]')];
+    const paras = [];
+    lines.slice(0, 5).forEach((l) => c.para(l, { wt: 'semi', font: 'titre', color: ink, gapK: 0.35 }).forEach((p) => paras.push(p)));
+    c.text(Object.assign({ x: b.x + pad, y: b.y + pad + 0.3, w: b.w - 2 * pad, h: b.h - 2 * pad - 0.3, paras, size: S.liste[0], min: S.liste[1], maxTotal: 7, wt: 'semi', align: 'left', valign: 'bottom', font: 'titre', color: ink, lh: K.titre, name: 'Liste tuile ' + (i + 1) }, g));
+    return;
+  }
+  c.round(Object.assign({ x: b.x, y: b.y, w: b.w, h: b.h, fill: c.P.surface, radius: rad, name: 'Tuile ' + (i + 1) }, g));
+  if (type === 'fragment' || type === 'capture') return logicielFragment(c, b, tile, i, rad, pad);
+  if (type === 'chiffre') {
+    // Le chiffre en grand en haut à gauche, son titre en bas ; jamais en accent (la liste le porte).
+    c.text(Object.assign({ x: b.x + pad * 0.7, y: b.y + pad * 0.6, w: b.w - 1.4 * pad, h: b.h * 0.58, text: tile.chiffre || (c.lang === 'en' ? '[TO PROVIDE: figure]' : '[À FOURNIR : chiffre]'), size: S.chiffre[0], min: S.chiffre[1], maxTotal: 1, wt: 'semi', align: 'left', valign: 'top', font: 'titre', color: c.P.fg, lh: 0.9, name: 'Chiffre tuile ' + (i + 1) }, g));
+    logicielHead(c, b, tile, i, { pad, w: b.w - 2 * pad, h: b.h - 2 * pad, valign: 'bottom', color: c.P.fg, color2: c.P.fg2 });
+    return;
+  }
+  // Photo, icône, mot, matière, coloris : le dessin commun des tuiles de bento.
+  bentoTile(c, b, tile, type, i);
+}
+V['A14/fragments-logiciel'] = (c) => {
+  const S = BENTO_LOGICIEL;
+  const box = logicielBox(c);
+  let tiles = arr(c.t.tuiles).slice(0, 11).map((t) => (typeof t === 'string' ? { titre: t } : t || {}));
+  if (arr(c.t.tuiles).length > 11) c.warn('Bento logiciel : 11 tuiles au plus ; les suivantes sont ignorées.');
+  while (tiles.length < 6) tiles.push({ titre: c.lang === 'en' ? '[TO PROVIDE: tile]' : '[À FOURNIR : tuile]' });
+  const cases = S.cases[tiles.length];
+  // Tuile centrale : aplat sombre sur un deck clair, aplat d'accent sur un deck sombre.
+  const center = box(S.centre[0], S.centre[1], S.centre[2]);
+  const rad = (b) => Math.min(VS.tuile.rayon, 0.25 * Math.min(b.w, b.h));
+  const dark = darkBg(c);
+  const cFill = dark ? c.P.accent : c.T.fondSombre;
+  const cInk = dark ? onAccent(c.P.accent, c.T.fondSombre) : c.T.texteSombre;
+  const cInk2 = dark ? cInk : c.T.texteSecSombre;
+  c.round({ x: center.x, y: center.y, w: center.w, h: center.h, fill: cFill, radius: rad(center), name: 'Tuile centrale', g: 'centre' });
+  const pad = 0.26;
+  const logo = loadImg(c, c.slide.image);
+  if (logo) putImage(c, logo, fitRect({ x: center.x + pad, y: center.y + pad, w: center.w * 0.4, h: 0.3 }, logo.info, 'contain', 'left', 'top'), { name: 'Logo', g: 'centre' });
+  else if (c.slide.image) registerMissing(c, c.slide.image, 'logo', c.lang === 'en' ? 'logo for a dark background' : 'logo pour fond sombre');
+  const hasTxt = !!str(c.t.texte);
+  c.text({ x: center.x + pad, y: center.y + pad + 0.36, w: center.w * (hasTxt ? 0.6 : 1) - pad, h: center.h - 2 * pad - 0.36, text: c.f('titre', 'nom'), size: S.centreTitre[0], min: S.centreTitre[1], maxTotal: 3, wt: 'semi', align: 'left', valign: 'bottom', font: 'titre', color: cInk, lh: K.titre, name: 'Titre central', g: 'centre' });
+  if (hasTxt) c.text({ x: center.x + center.w * 0.6, y: center.y + pad, w: center.w * 0.4 - pad, h: center.h - 2 * pad, text: c.t.texte, size: S.centreTexte, min: 7, maxTotal: 6, wt: 'regular', align: 'left', valign: 'bottom', font: 'texte', color: cInk2, name: 'Texte central', g: 'centre' });
+  // Une seule tuile d'accent : la première liste, et seulement sur un deck clair (sur sombre, le centre l'a).
+  let accentFree = !dark;
+  tiles.forEach((t, i) => {
+    const L = cases[i];
+    const type = normKey(t.type) || (t.chiffre ? 'chiffre' : arr(t.lignes).length ? 'liste' : L[3]);
+    const acc = type === 'liste' && accentFree;
+    if (acc) accentFree = false;
+    logicielTile(c, box(L[0], L[1], L[2]), t, type, i, { accent: acc });
+  });
+  if (!accentFree || dark) c.accentUsed = true;
+  tilesMissingNote(c);
+  fragmentsMissingNote(c);
+  srcLine(c, { x: M, y: H - 0.3, w: FULL_W, h: 0.28 });
+  c.groups = [G('centre', KW.centre, { prio: 1 }), G('tuiles', KW.tuiles, { multi: true })];
 };
 
 // A19 : prix. Le produit d'un côté (ombre de contact sur fond clair), le prix de l'autre ; un prix

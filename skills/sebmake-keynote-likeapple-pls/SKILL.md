@@ -74,7 +74,8 @@ Lis `references/designs.md` : la partie « Choisir un design », puis la fiche d
 - **l'archétype et la variante.** L'archétype vient de l'étape d'annonce (`grammaire.md` §4.1, colonne Visuel). La variante vient du contenu et des visuels que l'utilisateur a, ou peut avoir : une capture appelle un appareil, une photo une variante sur image ; sans rien, une variante sans visuel, jamais un cadre vide. La table « Les variantes du moteur » dit ce que chacune demande.
 - **le rythme.** Varie les designs d'un bloc à l'autre, et jamais trois fois de suite la même composition (même archétype, même variante). Deux blocs n'ouvrent pas de la même façon.
 - **un moment visuel fort par bloc**, au moins : un chiffre géant (A5), un objet ou une interface (A9, A10), le produit seul (A13), le bento (A14), une photo plein cadre (A18) ou une variante à image.
-- **le visuel à préparer**, d'après le §7 de la fiche : son type, un brief (ce qu'il montre, son cadrage, sa lumière), fond transparent ou non, l'angle, la résolution minimale.
+- **le récap d'un logiciel** (plateforme, outil métier en SaaS) : prends l'A14 `fragments-logiciel`. Ses tuiles suivent la démo, chacune porte un composant isolé de la maquette (pas un écran entier), avec au plus une photo d'usage (Unsplash ou Pexels) prise dans le marché du public (`designs.md`, A14, variante g).
+- **le visuel à préparer**, d'après le §7 de la fiche : son type, un brief (ce qu'il montre, son cadrage, sa lumière), fond transparent ou non, l'angle, la résolution minimale. Quand tu peux le chercher toi-même, propose-le (`designs.md` §2, règle 7). Dans une maquette, ne t'arrête pas à l'écran : descends jusqu'au composant qui dit la fonction. Pour les photos d'usage ou d'ambiance, tu peux puiser dans Unsplash ou Pexels, en licence gratuite vérifiée, avec l'auteur noté et une photo prise dans le marché du public.
 
 Montre le résultat en un tableau court, à la suite du conducteur validé, une ligne par slide :
 
@@ -196,5 +197,6 @@ node "$SKILL/scripts/export_script.js" deck.json --md script.md --visuels visuel
 | `references/data/runofshow.json` | Pour des proportions exactes de déroulé (les 8 keynotes, segment par segment). |
 | `references/data/lexique.json` | Rarement : fréquence des mots du corpus anglais, pour doser un adjectif. |
 | `references/data/publics-exigences.json` | Version machine de `publics.md`, lue par les scripts. À lire seulement pour comprendre une alerte. |
+| `references/analyses/S1` à `S4` | Archives de l'analyse, seulement en cas de doute sur un compte. Elles contiennent des extraits de keynotes : n'en recopie rien. |
 | `assets/exemple-deck.json` | Exemple fictif complet, pour le niveau de détail du script, des variantes, des briefs de visuels et des marqueurs. |
 | `scripts/check_deck.py`, `scripts/build_deck.js`, `scripts/export_script.js` | Contrôle (Python 3.9 et plus, sans dépendance), rendu .pptx et aperçu (Node 18 et plus, pptxgenjs), script, visuels à préparer, apparitions et sous-titres (Node, sans dépendance). |
